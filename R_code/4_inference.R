@@ -23,6 +23,9 @@ library(kableExtra)
 # set path for processed data from script 1 and matched data from script 2
 processed_data_path <- "data/processed/"
 
+# set path for temporary Fisher data (will delete later!)
+Fisher_path <- "data/processed/Fisher_delete_later/"
+
 # load matched data
 matched <- read.csv(paste0(processed_data_path, "matched.csv"))
 # change row names to I:N
@@ -295,7 +298,7 @@ regression_table <- left_join(regression_table, regression_table_covs, by = "cit
 #   gather(key = "city", value = "tau")
 
 #save(tau_null_df, file = "tau_null.Rda")
-load(file = "tau_null.Rda")
+load(file = paste0(Fisher_path, "tau_null.Rda"))
 
 # p <- list()
 # for(i in 1:length(cities)){
@@ -376,7 +379,7 @@ tau_table %>% pander()
 #   gather(key = "city", value = "IRR")
 # 
 # save(IRR_null_df, "IRR_null.Rda")
-load(file = "IRR_null.Rda")
+load(file = paste0(Fisher_path, "IRR_null.Rda"))
 
 
 
@@ -531,7 +534,7 @@ for(i in 1:nrow(matched)){
 # # colnames(a_table) <- cities
 
 #save(a_table, file = "a_table.Rda")
-load(file = "a_table.Rda")
+load(file = paste0(Fisher_path, "a_table.Rda"))
 
 # the p-values when a=0 matches the ones I got before! (in tau_table)
 
@@ -617,7 +620,7 @@ stats_table$upper.CI.tau.fid <- c(15.5, 13, 35, 7, 6)
 # colnames(a_table_RR) <- cities
 
 #save(a_table_RR, file = "a_table_RR.Rda")
-load(file = "a_table_RR.Rda")
+load(file = paste0(Fisher_path, "a_table_RR.Rda"))
 
 
 # chic: [1.008, 1.07]
