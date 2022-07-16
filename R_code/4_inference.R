@@ -26,6 +26,13 @@ processed_data_path <- "data/processed/"
 # set path for temporary Fisher data (will delete later!)
 Fisher_path <- "data/processed/Fisher_delete_later/"
 
+# set path to write out PDF with figures (use "" for general path)
+figures_path <- "figures/"
+
+# open PDF (will automatically write in figures after running the whole script)
+pdf(file = paste0(figures_path, "inference.pdf"))
+
+
 # load matched data
 matched <- read.csv(paste0(processed_data_path, "matched.csv"))
 # change row names to I:N
@@ -639,8 +646,8 @@ regression_table$upper.CI.fid <- c(1.07, 1.044, 1.102, 1.076, 1.114)
 #---------------  UNMATCHED DATA--traditional adjusted analysis  -------------#
 ##############################################################################################
 
-read.csv(paste0(processed_data_path, "all_processed.csv"))
-unmatched <- treatment_defined %>%
+unmatched <- read.csv(paste0(processed_data_path, "all_processed.csv"))
+unmatched <- unmatched %>%
   filter(!is.na(is_treated))
 
 # new column for sum of deaths on 3 exp. days
@@ -887,4 +894,5 @@ regression_table %>%
         legend.position = c(1, 1), 
         legend.justification = c("right", "top"))
 
+dev.off()
 
