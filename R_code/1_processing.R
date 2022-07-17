@@ -34,7 +34,7 @@ processed_data_path <- "data/processed/"
 source("R_code/functions.R")
 
 # open PDF (will automatically write in figures after running the whole script)
-pdf(file = "figures/EDA.pdf")
+# pdf(file = "figures/EDA.pdf")
 
 
 #------------------------------------------------------------------------#
@@ -379,5 +379,5 @@ check_treatment <- treatment_defined %>%
   dplyr::select(c("date", "month", "city", "death", "o3", "tmax", "is_treated"))
 
 
-dev.off()
+#dev.off()
 

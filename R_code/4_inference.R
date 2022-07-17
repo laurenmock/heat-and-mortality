@@ -151,22 +151,6 @@ stats_table$upper.CI.tau.bayes <- stats_table$tau.bayes + (1.96*sqrt(stats_table
 
 #------------------------------ REGRESSION ------------------------------#
 
-# histograms of deaths
-# all cities
-matched %>%
-  ggplot() +
-  geom_density(aes(death_sum3, fill = city), col = "white", alpha = 0.7) +
-  ggtitle("Distribution of Death Counts") +
-  xlab("Deaths over 3 Day Experiment") +
-  theme_classic()
-# split by city
-matched %>%
-  ggplot() +
-  geom_histogram(aes(death_sum3), bins = 12, col = "white") +
-  facet_wrap(~city, scales= "free") +
-  xlab("Deaths over 3 Day Experiment") +
-  theme_bw()
-
 
 # which model?
 city_means <- tapply(matched$death_sum3, matched$city, mean)
@@ -655,19 +639,19 @@ unmatched$death_sum3 <- unmatched$death + unmatched$death_lag_1 + unmatched$deat
 
 # histograms of deaths
 # all cities
-unmatched %>%
-  ggplot() +
-  geom_density(aes(death_sum3, fill = city), col = "white", alpha = 0.7) +
-  ggtitle("Distribution of Death Counts") +
-  xlab("Deaths over 3 Day Experiment") +
-  theme_classic()
-# split by city
-unmatched %>%
-  ggplot() +
-  geom_histogram(aes(death_sum3), bins = 12, col = "white") +
-  facet_wrap(~city, scales= "free") +
-  xlab("Deaths over 3 Day Experiment") +
-  theme_bw()
+# unmatched %>%
+#   ggplot() +
+#   geom_density(aes(death_sum3, fill = city), col = "white", alpha = 0.7) +
+#   ggtitle("Distribution of Death Counts") +
+#   xlab("Deaths over 3 Day Experiment") +
+#   theme_classic()
+# # split by city
+# unmatched %>%
+#   ggplot() +
+#   geom_histogram(aes(death_sum3), bins = 12, col = "white") +
+#   facet_wrap(~city, scales= "free") +
+#   xlab("Deaths over 3 Day Experiment") +
+#   theme_bw()
 
 
 # which model?
