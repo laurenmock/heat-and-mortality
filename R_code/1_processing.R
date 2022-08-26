@@ -33,9 +33,6 @@ processed_data_path <- "data/processed/"
 # source functions
 source("R_code/functions.R")
 
-# open PDF (will automatically write in figures after running the whole script)
-# pdf(file = "figures/EDA.pdf")
-
 
 #------------------------------------------------------------------------#
 #--------- import data ---------#
@@ -142,17 +139,7 @@ raw_data %>%
     ggtitle("Missing Data") +
     facet_grid(~city)
 
-#------------------------------------------------------------------------#
-#--------- single imputation for missing death counts ---------#
-#------------------------------------------------------------------------#
-
-# note from Stephane:
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-#>>>>> WARINING: multiple imputation with proper model (+ sensitivity analysis) at the end
-#!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!s
-
-# remove any rows with missing outcome
-
+# remove any rows with missing outcome (very few rows)
 raw_data <- raw_data %>%
   filter(!is.na(death))
 
@@ -316,8 +303,6 @@ for(i in 1:length(cities)){
   # filter to include only one city at a time
   city_df[[i]] <- filter(processed_data, city == cities[i]) # look at one city at a time
   
-  ### tmax ###
-  
   # find low/high tmax days
   
   # find median in summer months
@@ -349,35 +334,39 @@ treated_data <- bind_rows(city_df)
 #--- Define Treatment (Depends on Previous Days) ---#
 #------------------------------------------------------------------------#
 
-# functions sourced
+# length of time period for each experiment
+time_prd <- 3
 
-# treatment_LLL_vs_LLH
-# treatment_LLL_vs_HHH
-# treatment_LLL_vs_LLH_2exp
-# treatment_LLL_vs_HHH_2exp
+# initialize column for treatment
+treated_data$is_treated <- NA
 
-# FUNCTION INPUTS
-#----------------
-# data: data frame on which to add the is_treated column
-# lag: number of preceding days include in treatment 
-# exposure: covariate being used for treatment (2exp has exposure1 and exposure2)
+# loop through rows of data frame, starting with time_prd
+for(l in (time_prd):nrow(treated_data)){
 
+  # only look at days and lag days with non-missing exposure values
+  if(all(!is.na(treated_data$is_tmax_high[(l - (time_prd-1)):l]))){
 
-# save data
-#------------------------------------------------------------------------#
-treatment_defined <- treatment_LLL_vs_HHH(data = treated_data, lag = 2, exposure = is_tmax_high) %>%
-  dplyr::select(-c(is_tmax_high))
+    # assign control day if current day and previous lag days were all low
+    if(all((treated_data$is_tmax_high[(l - (time_prd-1)):l]) == FALSE)){
+      treated_data$is_treated[l] <- FALSE
+    }
 
-write.csv(treatment_defined, file = paste0(processed_data_path, "all_processed.csv"),
+    # assign treated day if current day and previous lag days were all high
+    if(all((treated_data$is_tmax_high[(l - (time_prd-1)):l]) == TRUE)){
+      treated_data$is_treated[l] <- TRUE
+    }
+  }
+}
+
+# write CSV for processed data
+write.csv(treated_data, 
+          file = paste0(processed_data_path, "all_processed.csv"),
           row.names = FALSE)
 
 #--------------------------------------------------------------------------------------------#
 #------------ Check relevant columns to make sure treated vs. control makes sense -----------#
 #--------------------------------------------------------------------------------------------#
 
-check_treatment <- treatment_defined %>%
+check_treatment <- treated_data %>%
   dplyr::select(c("date", "month", "city", "death", "o3", "tmax", "is_treated"))
-
-
-#dev.off()
 
