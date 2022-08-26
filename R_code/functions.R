@@ -3,67 +3,11 @@
 #### Causal Inference for Time Series (Heat and Mortality) ####
 ###############################################################
 
-### Functions to Define Treatment (treated vs. control) ###
+#----- functions for matching (script 2) -----#
+
+# all of this was written by Stephane!
 
 library(Rcpp)
-
-
-# These functions create the is_treated column.
-# The is_treated column is TRUE for treated, FALSE for control, and NA for unusable (doesn't meet the criteria of either).
-
-
-# FUNCTION INPUTS
-#----------------
-# data: data frame on which to add the is_treated column
-# lag: number of preceding days to include in treatment 
-# exposure: "is_high" column being used for treatment
-
-
-#------------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------------#
-
-### comparing low, low, low vs. high, high, high
-
-treatment_LLL_vs_HHH <- function(data, lag, exposure){
-  
-  # use inputted exposure column name to get vector of exposure values
-  selected_column <- eval(substitute(exposure), data)
-  
-  # initialize column for control, treatment, or NA
-  data$is_treated <- rep(NA, nrow(data))
-  
-  # loop through rows of data frame, starting with lag+1
-  for(l in (lag + 1):nrow(data)){
-    
-    # only look at days and lag days with non-missing exposure values
-    if(all(!is.na(selected_column[(l - lag):l]))){
-      
-      # assign control day if current day and previous lag days were all low
-      if(all((selected_column[(l - lag):l]) == FALSE)){
-        data$is_treated[l] <- FALSE
-      }
-      
-      # assign treated day if current day and previous lag days were all high
-      if(all((selected_column[(l - lag):l]) == TRUE)){
-        data$is_treated[l] <- TRUE
-      }
-    }
-    
-  }
-  return(data)
-}
-
-
-#------------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------------#
-#------------------------------------------------------------------------------------#
-
-
-###########################################################
-################## Functions for Matching #################
-###########################################################
-
 
 # pairwise difference between real-univariate covariate of treated VS control group
 cppFunction('NumericMatrix pairDistCpp(NumericVector treated, NumericVector control) {
