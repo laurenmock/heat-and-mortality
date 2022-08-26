@@ -118,16 +118,18 @@ plot(stdif_before, 1:length(covs),
      main = "Love Plot",
      ylab = "",
      xlab = "Standardized Difference in Covariate Means", 
-     xlim = c(-1,2))
+     xlim = c(-1,2),
+     cex = 1.5)
 axis(1)
 axis(2, at = 1:length(covs), las = 1, lab = cov_labs)
 abline(v = 0)
 abline(v = 0.1, lty = 3)
 abline(v = -0.1, lty = 3)
 abline(h = 1:length(covs), col = "cornsilk3", lty=6)
-points(stdif_after, 1:length(covs), pch = 17, col = "darkorange2")
+points(stdif_after, 1:length(covs), pch = 17, col = "steelblue1", cex = 1.5)
 legend("topright", legend = c("Initial Data", "Matched Data"), 
-       col = c("black", "darkorange2"), pch = c(1, 17), box.col = "cornsilk3", cex = 0.8)
+       col = c("black", "steelblue1"), pch = c(1, 17), box.col = "cornsilk3",
+       bg = "white", pt.cex = 1.5)
 # reset margins to default
 par(mar=c(4,4,4,4))
 
@@ -141,31 +143,32 @@ dat_all$is_treated <- as.character(dat_all$is_treated)
 dat_all$is_treated <- factor(dat_all$is_treated, levels = c("TRUE", "FALSE"))
 
 # week of the year density
+density_layers <- list(
+  geom_density(aes(week, fill = is_treated), alpha = 0.5, color = "white"),
+  xlab("Week of the Year"),
+  ylab("Density"),
+  labs(fill = ""),
+  scale_fill_manual(labels = c("Treated", "Control"),
+                    values = c("firebrick3", "orange")),
+  ylim(0,.1),
+  theme_classic(),
+  theme(plot.title = element_text(size = 12),
+        axis.title = element_text(size = 10))
+)
+
 
 # initial data
 week1 <- dat_all %>%
   ggplot() +
-  geom_density(aes(week, fill = is_treated), alpha = 0.5, color = "white") +
-  labs(title = "Initial Data", x = "Week of the Year", y = "Density", fill = "") +
-  scale_fill_manual(labels = c("Treated (Hot)", "Control (Warm)"),
-                     values = c("tomato", "deepskyblue3")) +
-  ylim(0,.1) +
-  theme_classic() + 
-  theme(plot.title = element_text(size = 12),
-        axis.title = element_text(size = 10))
+  ggtitle("Initial Data") + 
+  density_layers
 
 # matched data
 week2 <- dat_all %>%
   filter(matched == 1) %>%
   ggplot() +
-  geom_density(aes(week, fill = is_treated), alpha = 0.5, color = "white") +
-  labs(title = "Matched Data", x = "Week of the Year", y = "Density", fill = "") +
-  scale_fill_manual(labels = c("Treated (Hot)", "Control (Warm)"),
-                     values = c("tomato", "deepskyblue3")) +
-  ylim(0,.1) +
-  theme_classic() +
-  theme(plot.title = element_text(size = 12),
-        axis.title = element_text(size = 10))
+  ggtitle("Matched Data") +
+  density_layers
 
 ggarrange(week1, week2, nrow = 1, common.legend = TRUE)
 
@@ -215,6 +218,28 @@ dat_after %>%
 
 #--------------- look at lags ---------------#
 
+pal <- c("firebrick3", "orange")
+
+gglayers = list(
+  geom_line(size = 1.3),
+    geom_point(size = 3, 
+               shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3)),
+               stroke = 2,
+               # shape = 16,
+               #alpha = c(rep(1,3), rep(0.5,3), rep(1,3), rep(0.5,3))
+               ),
+    scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
+                                "Day 1", "Day 2", "Day 3")),
+    scale_color_manual(labels = c("Treated", "Control"),
+                       values = pal),
+    theme_classic(),
+    theme(legend.text = element_text(size = 14),
+          legend.key.size = unit(1.5, 'cm'),
+          panel.border = element_rect(colour = "black", fill=NA, size=1),
+          plot.title = element_text(size = 15))
+)
+
+
 ### tmax ###
 
 tmax_means <- dat_after %>%
@@ -231,17 +256,8 @@ tmax_means$is_treated <- factor(tmax_means$is_treated, levels = c("TRUE", "FALSE
 
 tmax_lag <- tmax_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_tmax, group = is_treated, color = is_treated)) +
-  geom_line() +
-  geom_point(size = 3, shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3))) +
   labs(title = "High Temperature", x = "", y = expression(paste("Mean High Temp. (", ~degree, "F)")), color = "") + 
-  scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
-                              "Day 1", "Day 2", "Day 3")) +
-  scale_color_manual(labels = c("Treated (Hot)", "Control (Warm)"),
-                     values = c("red", "blue")) +
-  theme_bw() + 
-  theme(legend.text = element_text(size = 17),
-        legend.key.size = unit(2.2, 'cm'),
-        plot.title = element_text(size = 15))
+  gglayers
 
 
 ### OZONE ###
@@ -260,15 +276,8 @@ o3_means$is_treated <- factor(o3_means$is_treated, levels = c("TRUE", "FALSE"))
 
 o3_lag <- o3_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_o3, group = is_treated, color = is_treated)) +
-  geom_line() +
-  geom_point(size = 3, shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3))) +
   labs(title = expression('O'[3]), x = "", y = expression('Mean O'[3]*' (ppb)'), color = "") + 
-  scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
-                              "Day 1", "Day 2", "Day 3")) +
-  scale_color_manual(labels = c("Treated", "Control"),
-                     values = c("red", "blue")) +
-  theme_bw() #+
-  #theme(legend.position = "none")
+  gglayers
 
 
 ### NO2 ###
@@ -287,15 +296,8 @@ no2_means$is_treated <- factor(no2_means$is_treated, levels = c("TRUE", "FALSE")
 
 no2_lag <- no2_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_no2, group = is_treated, color = is_treated)) +
-  geom_line() +
-  geom_point(size = 3, shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3))) +
   labs(title = expression('NO'[2]), x = "", y = expression('Mean NO'[2]*' (ppb)'), color = "") +
-  scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
-                              "Day 1", "Day 2", "Day 3")) +
-  scale_color_manual(labels = c("Treated", "Control"),
-                     values = c("red", "blue")) +
-  theme_bw() #+
-  #theme(legend.position = "none")
+  gglayers
 
 
 ### PM10 ###
@@ -314,16 +316,8 @@ pm10_means$is_treated <- factor(pm10_means$is_treated, levels = c("TRUE", "FALSE
 
 pm10_lag <- pm10_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_pm10, group = is_treated, color = is_treated)) +
-  geom_line() +
-  geom_point(size = 3, shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3))) +
   labs(title = expression('PM'[10]), x = "", y = expression('Mean PM'[10]*' (\u00b5g/m\u00b3)'), color = "") +
-  scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
-                              "Day 1", "Day 2", "Day 3")) +
-  scale_color_manual(labels = c("Treated", "Control"),
-                     values = c("red", "blue")) +
-  theme_bw() #+
-  #theme(legend.position = "none")
-
+  gglayers
 
 ### PM25 ###
 
@@ -341,15 +335,8 @@ pm25_means$is_treated <- factor(pm25_means$is_treated, levels = c("TRUE", "FALSE
 
 pm25_lag <- pm25_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_pm25, group = is_treated, color = is_treated)) +
-  geom_line() +
-  geom_point(size = 3, shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3))) +
   labs(title = expression('PM'[2.5]), x = "", y = expression('Mean PM'[2.5]*' (\u00b5g/m\u00b3)'), color = "") +
-  scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
-                              "Day 1", "Day 2", "Day 3")) +
-  scale_color_manual(labels = c("Treated", "Control"),
-                     values = c("red", "blue")) +
-  theme_bw() #+
-  #theme(legend.position = "none")
+  gglayers
 
 
 ### RHUM ###
@@ -368,15 +355,8 @@ rhum_means$is_treated <- factor(rhum_means$is_treated, levels = c("TRUE", "FALSE
 
 rhum_lag <- rhum_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_rhum, group = is_treated, color = is_treated)) +
-  geom_line() +
-  geom_point(size = 3, shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3))) +
   labs(title = "Relative Humidity", x = "", y = "Relative Humidity (%)", color = "") +
-  scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
-                              "Day 1", "Day 2", "Day 3")) +
-  scale_color_manual(labels = c("Treated", "Control"),
-                     values = c("red", "blue")) +
-  theme_bw() #+
-#theme(legend.position = "none")
+  gglayers
 
 
 
@@ -557,6 +537,8 @@ week_comp <- dat_all %>%
 
 # all comparisons in one plot
 grid.arrange(month_comp, dow_comp, year_comp, week_comp)
+
+
 
 
 dev.off()

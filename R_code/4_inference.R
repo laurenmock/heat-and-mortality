@@ -9,6 +9,10 @@
 
 #------------------------------------------------------------------------#
 
+# install package for split violin plot
+# see stack overflow: https://stackoverflow.com/questions/35717353/split-violin-plot-with-ggplot2
+# devtools::install_github("psyteachr/introdataviz")
+
 library(ggplot2)
 library(tidyverse)
 library(pander)
@@ -226,7 +230,7 @@ upper.CI.covs <- vector()
 
 for(i in 1:length(cities)){
   negB.covs[[i]] <- glm.nb(death_sum3 ~ is_treated + as.factor(pair) + 
-                             dow + month + o3_lag_3 + no2_lag_3, data = matched %>% filter(city == cities[i]))
+                             month + o3_lag_3 + no2_lag_3, data = matched %>% filter(city == cities[i]))
   
   # calculate incidence rate ratio for treated vs. untreated
   IRR.covs[i] <- negB.covs[[i]]$coefficients[2] %>% exp()
@@ -631,6 +635,12 @@ regression_table$upper.CI.fid <- c(1.07, 1.044, 1.102, 1.076, 1.114)
 ##############################################################################################
 
 unmatched <- read.csv(paste0(processed_data_path, "all_processed.csv"))
+
+# count number of observations per city
+total_obs <- unmatched %>%
+  group_by(city) %>%
+  summarise(n())
+
 unmatched <- unmatched %>%
   filter(!is.na(is_treated))
 
@@ -691,6 +701,36 @@ regression_table_unmatched <- data.frame(city = cities, IRR.covs.unmatch = IRR.c
 regression_table <- left_join(regression_table, regression_table_unmatched, by = "city")
 
 
+##############################################################################################
+#-------------------------  Split Violin Plot  -----------------------#
+##############################################################################################
+
+library(introdataviz)
+
+city_names <- c(
+  `chic` = "Chicago",
+  `la` = "Los Angeles",
+  `ny` = "New York",
+  `pitt` = "Pittsburgh",
+  `seat` = "Seattle"
+)
+
+ggplot(matched, aes(x = 1, y = death_sum3, fill = is_treated)) +
+  geom_split_violin(col = "white") +
+  facet_wrap(~city, nrow = 1, scales = "free", labeller = as_labeller(city_names)) +
+  labs(x = "Density", 
+       y = "Deaths per 3 Day Period",
+       fill = "") +
+  scale_fill_manual(labels = c("Control", "Treated"),
+                    values = c("orange", "firebrick3")) +
+  theme_classic() +
+  theme(axis.title.x = element_blank(),
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank(),
+        strip.background = element_blank(),
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)))
+  
+
 
 ##############################################################################################
 #-------------------------  TABLES  -----------------------#
@@ -705,35 +745,54 @@ n_tab <- unmatched %>%
   spread(key = "is_treated", value = "n") %>%
   rename(n.control = `FALSE`,
          n.treated = `TRUE`) %>%
-  mutate(n.total = n.control + n.treated)
+  as.data.frame()
+
+# add column for total number of days with data for each city
+n_tab$total <- total_obs$`n()`
 
 # add column for matched data
-n_tab$n.pair <- stats_table$n
+n_tab$n.pair <- stats_table$n/2
 
 # reformat
 n_tab <- n_tab[,c(1,4,2,3,5)]
-n_tab <- n_tab %>% t() %>% as.data.frame()
-names(n_tab) <- cities
-n_tab <- n_tab[-1,]
+#row.names(n_tab) <- c(n_tab[,1])
+n_tab <- n_tab %>%
+  `row.names<-`(c("Chicago", "Los Angeles", "New York", "Pittsburgh", "Seattle")) %>%
+  dplyr::select(-c(city))
 
-kbl(n_tab) %>%
-  kable_classic()
+
+# add row for % of treated units ("heat waves") that were had a control match
+n_tab$pct_matched <- (100*(n_tab$n.pair/n_tab$n.treated)) %>% round(1)
+
+
+# kable
+n_tab %>%
+  setNames(c("N total", "N control", 
+             "N treated", "N pair", 
+             "% Treated Units Matched")) %>%
+  kable(format = "html") %>%
+  kable_styling(bootstrap_options = c("striped"))
+
+# make the column names subscript! (may not be possible in R script)
 
 #----------------------------------------------#
 
 # table for matching criteria
 
 # matched on:
-matched_on <- c("City", "Year", "Week of the year", 
-                "Day of week category (Monday, Tuesday/Wednesday/Thursday, Friday, Saturday/Sunday)", 
+matched_on <- c("City", "Year", "Week of the year",
+                "Day of the week",
                 "NO2 day before experiment (ppb)", "O3 day before experiment (ppb)")
 matched_by <- c("exact", "0", "3", "exact", "5", "5")
 
-matched_tab <- data.frame(Covariate = matched_on,
-                          `Discrepancy Allowed` = matched_by)
+matched_tab <- data.frame(cov = matched_on,
+                          disc = matched_by)
 
-kbl(matched_tab) %>%
-  kable_classic()
+matched_tab %>%
+  setNames(c("Covariate", "Discrepancy Allowed")) %>%
+  kable(format = "html") %>%
+  kable_styling(bootstrap_options = c("striped"))
+
 
 #----------------------------------------------#
 
