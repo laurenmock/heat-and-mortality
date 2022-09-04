@@ -18,7 +18,7 @@ library(tidyverse)
 #------------------------------------------------------------------------#
 
 # source matching functions
-source("R_code/functions.R")
+source("R_code/matching_functions.R")
 
 # path to read in processed data and write out matched data
 processed_data_path <- "data/processed/"
