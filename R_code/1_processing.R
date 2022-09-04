@@ -7,7 +7,7 @@
 # Input: Raw Data 
 # (la, la.mortality, chic, chic.mortality, ny, ny.mortality, 
 # pitt, pitt.mortality, seat, seat.mortality)
-# Output: Processed data
+# Output: Processed data (all_processed.csv)
 
 #------------------------------------------------------------------------#
 #--------- load libraries ---------#
@@ -30,9 +30,8 @@ raw_data_path <- "data/raw/"
 # path for writing processed data
 processed_data_path <- "data/processed/"
 
-# source functions
-source("R_code/functions.R")
-
+# path for EDA figures
+EDA_path <- "figures/EDA/"
 
 #------------------------------------------------------------------------#
 #--------- import data ---------#
@@ -123,22 +122,6 @@ if (exists("relevant_variables") && !is.null(relevant_variables)){
 mortality_with_NAs = is.na(raw_data_mortality$death)
 print(subset(raw_data_mortality[mortality_with_NAs,], agecat %in% c("65to74","75p")))
 
-# there are several days/cities for which deaths are known for one age category but not the other,
-# so total deaths are unknown
-
-#------------------------------------------------------------------------#
-#--------- look for patterns in missing pollutants ---------#
-#------------------------------------------------------------------------#
-
-# substitute any pollutant name to see distribution of missing data across years by city
-
-raw_data %>%
-    filter(is.na(pm25)) %>%
-    ggplot() +
-    geom_bar(aes(isoyear(date))) +
-    ggtitle("Missing Data") +
-    facet_grid(~city)
-
 # remove any rows with missing outcome (very few rows)
 raw_data <- raw_data %>%
   filter(!is.na(death))
@@ -153,11 +136,8 @@ raw_data <- raw_data %>%
   dplyr::select(-str_subset(names(raw_data), "^l[1-3]"))
 
 
-# For each covariate, form new covariate defined as the value of that covariate on 
+# For each covariate, create new covariate defined as the value of that covariate on 
 # (day - 1), (day - 2), ... up to (day - nb_lag)
-
-# column indices to calculate lags for
-# cols_for_lags <- which(names(raw_data) %in% c("death","dow","tmpd","tmax","dptp","rhum"))
 
 # city names
 cities <- names(files_list)
@@ -202,7 +182,6 @@ calc_lags <- function(df){
 # apply function to get lags for each city
 cities_list_lags <- lapply(cities_list, calc_lags)
 
-
 # bind all the cities back together
 processed_data <- bind_rows(cities_list_lags)
 
@@ -222,14 +201,6 @@ processed_data$year = as.numeric(format(processed_data$date,"%Y"))
 processed_data$weekend <-
   ifelse(processed_data$dow == "Saturday" | processed_data$dow == "Sunday", TRUE, FALSE)
 
-# four categories for days
-processed_data$dow_cats <-  case_when(
-  processed_data$weekend == TRUE ~ "Weekend",
-  processed_data$dow == "Monday" ~ "Monday",
-  processed_data$dow == "Friday" ~ "Friday",
-  processed_data$dow == "Tuesday" | processed_data$dow == "Wednesday" | 
-    processed_data$dow == "Thursday" ~ "Middle")
-
 # week of the year
 processed_data$week <- isoweek(processed_data$date)
 
@@ -245,25 +216,34 @@ processed_data <- dummy_cols(processed_data, select_columns = c("dow", "month"))
 # ----------- EDA ----------- # 
 #------------------------------------------------------------------------#
 
-# what are the summer trends in pollutants in each city?
+#----- summer trends in pollutants -----#
 
-processed_data %>%
+gathered <- processed_data %>%
   filter(month %in% c("Jun", "Jul", "Aug", "Sep")) %>%
-  gather(key = "poll_name", value = "poll_value", c(12,16:21)) %>%
+  gather(key = "poll_name", value = "poll_value", c(12,16:21)) 
+
+gathered$poll_name <- factor(gathered$poll_name, 
+                              levels = c("tmax", "o3", "no2", "so2", "co", "pm25", "pm10"))
+
+png(file = paste0(EDA_path, "summer_trends.png"), width = 500, height = 600)
+
+gathered %>%
   group_by(week, city, poll_name) %>%
   summarise(mean_poll = mean(poll_value, na.rm = TRUE)) %>%
   ggplot() +
-  geom_line(aes(x = week, y = mean_poll, color = poll_name), lwd = 2) +
+  geom_line(aes(x = week, y = mean_poll, color = poll_name), lwd = 1.3) +
   facet_grid(poll_name ~ city, scales = "free") +
-  labs(title = "Summer Trends in Pollutants and TMax",
+  labs(title = "Summer Trends in TMax and Pollutants",
        x = "Week of the Year", 
        y = "Mean Pollutant Level") +
   theme_bw() +
   theme(legend.position = "none")
 
-#ggsave("figures/summer_trends_pollutants.png")
+dev.off()
 
-# correlation between pollutants and tmax during summer months
+
+#----- correlation between pollutants and tmax during summer months -----#
+
 corr_plots <- list()
 for(i in 1:length(cities)){
   corr_plots[[i]] <- processed_data %>%
@@ -273,17 +253,41 @@ for(i in 1:length(cities)){
     ggplot(aes(x = poll_value, y = tmax)) +
     geom_point(alpha = 0.2, color = "dodgerblue") +
     geom_smooth() +
-    labs(title = cities[i],
-         x = names(processed_data)[i+15]) +
+    labs(x = names(processed_data)[i+15]) +
     facet_grid(~ city, scales = "free")
 }
 
-grid.arrange(corr_plots[[1]], corr_plots[[2]], corr_plots[[3]], nrow = 3)
-grid.arrange(corr_plots[[4]], corr_plots[[5]], nrow = 2)
+g <- arrangeGrob(corr_plots[[1]], corr_plots[[2]], corr_plots[[3]], 
+                 corr_plots[[4]], corr_plots[[5]], nrow = 5)
 
-# g <- arrangeGrob(corr_plots[[1]], corr_plots[[2]], corr_plots[[3]], 
-#                  corr_plots[[4]], corr_plots[[5]], nrow = 5)
-#ggsave("figures/corr_tmax_pollutants.png", width = 5, height = 8, g)
+ggsave(file = paste0(EDA_path, "tmax_correlations.png"), width = 5, height = 8, g)
+
+
+#----- daily mortality density -----#
+
+png(file = paste0(EDA_path, "mortality_density.png"), width = 500, height = 500)
+
+processed_data %>%
+  ggplot() +
+  geom_density(aes(death, fill = city), col = "white", alpha = 0.7) +
+  ggtitle("Distribution of Death Counts") +
+  xlab("Deaths over 3 Day Experiment") +
+  theme_classic()
+
+dev.off()
+
+#----- daily mortality histograms -----#
+
+png(file = paste0(EDA_path, "mortality_histograms.png"), width = 500, height = 500)
+
+processed_data %>%
+  ggplot() +
+  geom_histogram(aes(death), bins = 20, col = "white") +
+  facet_wrap(~city, scales= "free") +
+  xlab("Deaths over 3 Day Experiment") +
+  theme_bw()
+
+dev.off()
 
 
 ##########################################################################
@@ -291,7 +295,7 @@ grid.arrange(corr_plots[[4]], corr_plots[[5]], nrow = 2)
 ##########################################################################
 
 #------------------------------------------------------------------------#
-#-------- Define Single Days as High/Low --------#
+#-------- Define single days as high/low temperature --------#
 #------------------------------------------------------------------------#
 
 # initialize list
@@ -334,7 +338,7 @@ treated_data <- bind_rows(city_df)
 #--- Define Treatment (Depends on Previous Days) ---#
 #------------------------------------------------------------------------#
 
-# length of time period for each experiment
+# length of time period
 time_prd <- 3
 
 # initialize column for treatment
@@ -368,5 +372,5 @@ write.csv(treated_data,
 #--------------------------------------------------------------------------------------------#
 
 check_treatment <- treated_data %>%
-  dplyr::select(c("date", "month", "city", "death", "o3", "tmax", "is_treated"))
+  dplyr::select(c("date", "month", "city", "death", "tmax", "is_treated"))
 

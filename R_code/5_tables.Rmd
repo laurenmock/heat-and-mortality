@@ -1,0 +1,31 @@
+---
+title: "Causal Inference for Time Series (Heat and Mortality)"
+author: "Lauren Mock"
+date: '2022-08-02'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(kableExtra)
+
+```
+
+```{r}
+# table for matching criteria
+
+# matched on:
+matched_on <- c("City", "Year", "Week of the year", 
+                "Day of the week", 
+                "NO2 day before experiment (ppb)", "O3 day before experiment (ppb)")
+matched_by <- c("exact", "0", "3", "exact", "5", "5")
+
+matched_tab <- data.frame(cov = matched_on,
+                          disc = matched_by)
+
+matched_tab |>
+  setNames(c("Covariate", "Discrepancy Allowed")) |>
+  kbl() |>
+  kable_classic()
+```
+

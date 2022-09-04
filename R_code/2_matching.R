@@ -5,7 +5,7 @@
 
 ### Script 2 ###
 # Input: Processed data from script 1
-# Output: Data frame that only contains matched pairs
+# Output: Data frame that only contains matched pairs (matched.csv)
 
 #------------------------------------------------------------------------#
 #------------------------------------------------------------------------#
@@ -17,10 +17,10 @@ library(tidyverse)
 #--------- set working directory/paths ---------#
 #------------------------------------------------------------------------#
 
-# source functions
+# source matching functions
 source("R_code/functions.R")
 
-# path to read in processed data and write out matched data (use "" for general path)
+# path to read in processed data and write out matched data
 processed_data_path <- "data/processed/"
 
 #------------------------------------------------------------------------#
@@ -117,13 +117,13 @@ discrepancies = discrepancyMatrix(treated_units, control_units, thresholds, scal
 cat("Number of prospective matched treated units =", sum(rowSums(discrepancies < Inf) > 0))
 
 # make row and column names date.city
-rownames(discrepancies) = paste(format(matching_data$date[which(matching_data$is_treated)],"%Y-%m-%d"), 
+
+rownames(discrepancies) = paste(matching_data$date[which(matching_data$is_treated)], 
                                 as.character(matching_data$city[which(matching_data$is_treated)]), sep = ".")
-colnames(discrepancies) = paste(format(matching_data$date[which(!matching_data$is_treated)],"%Y-%m-%d"), 
+colnames(discrepancies) = paste(matching_data$date[which(!matching_data$is_treated)], 
                                 as.character(matching_data$city[which(!matching_data$is_treated)]), sep = ".")
 
-# make the row names of matching_data the same format as the row names of the discrepancy matrix
-rownames(matching_data) <- paste(format(matching_data$date, "%Y-%m-%d"), 
+rownames(matching_data) <- paste(matching_data$date, 
                                  as.character(matching_data$city), sep = ".")
 
 #------------------------------------------------------------------------#
@@ -288,5 +288,8 @@ matched$id <- 1:nrow(matched)
 #------------------ SAVE MATCHED DATA -----------------------#
 #------------------------------------------------------------------------#
 
-write.csv(matched, file = paste0(processed_data_path, "matched.csv"), row.names = FALSE)
+# write CSV for matched data
+write.csv(matched, 
+          file = paste0(processed_data_path, "matched.csv"), 
+          row.names = FALSE)
 
