@@ -9,10 +9,6 @@
 
 #------------------------------------------------------------------------#
 
-# install package for split violin plot
-# see stack overflow: https://stackoverflow.com/questions/35717353/split-violin-plot-with-ggplot2
-# devtools::install_github("psyteachr/introdataviz")
-
 library(ggplot2)
 library(tidyverse)
 library(MASS)
@@ -243,8 +239,8 @@ regression_table <- left_join(regression_table, regression_table_covs, by = "cit
 # will need to update these!!! read in from csv from Young
 
 bayes_table <- data.frame(city = cities,
-                          est.bayes = c(9.36, 7.72, 25.06, 1.91, 3.88),
-                          var.bayes = c(2.91, 2.62, 5.60, 1.02, 1.08)^2)
+                          est.bayes = c(12.21, 9.93, 21.6, 0.19, 3.13),
+                          var.bayes = c(3.52, 2.79, 6.98, 1.17, 1.11)^2)
 
 bayes_table$lower.CI.bayes <- bayes_table$est.bayes - (1.96*sqrt(bayes_table$var.bayes))
 bayes_table$upper.CI.bayes <- bayes_table$est.bayes + (1.96*sqrt(bayes_table$var.bayes))
@@ -254,277 +250,11 @@ bayes_table$upper.CI.bayes <- bayes_table$est.bayes + (1.96*sqrt(bayes_table$var
 #-----------------------  FISHERIAN / FIDUCIAL  ----------------------#
 ##############################################################################################
 
-# fidiciual_matrix<-function(rand_mat,a_sequence,city_index,pairs){
-#   
-#   a_seq <- a_sequence ## values to test for interval
-#   
-#   ## initialize
-#   tau_a <- list()
-#   tau_obs <- vector()
-#   p_val_tau_a <- vector()
-#   
-#   ## function to test each value of a
-#   inc<-1
-#   for(a in a_seq){
-#     
-#     one_city <- matched %>% filter(city == cities[city_index])
-#     #     
-#     #     # make each element of tau_a a vector to store simulated taus under a
-#     tau_a <- vector()
-#     #     
-#     #     # loop through simulations
-#     for(j in 1:100000){
-#       
-#       tau_a[j]<- ( ( (1/pairs) * (sum(one_city$death_sum3[rand_mat[,j]==1 & one_city$is_treated == 1]) +
-#                                     sum((one_city$death_sum3[rand_mat[,j]==1 & one_city$is_treated == 0]) + a))) -
-#                      
-#                      ((1/pairs) * (sum(one_city$death_sum3[rand_mat[,j]==0 & one_city$is_treated == 0])
-#                                    + sum( ((one_city$death_sum3[rand_mat[,j]==0 & one_city$is_treated == 1]) - a) ))) )
-#     }
-#   
-#     #     # observed tau for city i
-#     tau_obs <- neyman_table$tau[city_index]
-#     #     
-#     #     # calculate % of tau_a that are more extreme than tau_obs
-#     p_val_tau_a[inc] <- signif(mean((tau_a) >= (tau_obs)),4)
-#     if(p_val_tau_a[inc] == .025){
-#       print(a)
-#     }
-#     inc<-inc+1
-#     
-#   }
-#   
-#   ret<-data.frame(p_val_tau_a)
-#   row.names(ret)<-a_seq
-#   
-#   return(invisible(ret))
-# }
-# 
-# 
-# ### Functions taken from updated (not yet updated on CRAN) Counternull package https://github.com/ymabene/Counternull
-# 
-# find_test_stat_diff_means<-function(sample_data,variable){
-#   # mean for experimental group (exposed)
-#   on_mean <-mean((variable)[sample_data[,1]=="1"])
-#   # mean for control group (non exposure)
-#   off_mean <-mean((variable)[sample_data[,1]=="0"])
-#   # difference
-#   test_stat<-on_mean - off_mean
-#   return(invisible(test_stat))
-# }
-# 
-# 
-# permutation_null_diff_means<-function(rand_matrix,variable,iterations){
-#   # permutation vector with differences of means
-#   perm_samples<-matrix(ncol=1,nrow=iterations)
-#   # creates distribution
-#   for(k in 1:iterations)
-#   {
-#     on<-mean(variable[rand_matrix[,k]==1]) # exposed
-#     off<-mean(variable[rand_matrix[,k]==0]) # not exposed
-#     perm_samples[k]<-on-off
-#   }
-#   return(invisible(perm_samples))
-# }
-# 
-# 
-# create_null_distribution<-function(sample_data, extreme, rand_matrix,
-#                                    permutation_null_function,test_stat,
-#                                    variable,iterations){
-#   # Creates permutation vector
-#   perm_samples<-permutation_null_function(rand_matrix,variable,iterations)
-#   
-#   # creates histogram and prints p-value
-#   null_hist<-hist(perm_samples,breaks=100,col = "gold",
-#                   main=paste("Null Distribution"), xlab="Test Statistics")
-#   abline(v=test_stat,col="black",lty=2, lwd=5)
-#   if (extreme==0){ # smaller test statistics are more extreme
-#     pvalue<-sum(perm_samples<=(test_stat))/iterations
-#     
-#   } else { # larger test statistics are more extreme
-#     pvalue<-sum(perm_samples>=(test_stat))/iterations
-#     
-#   }
-#   print(paste("Test Statistic =",test_stat))
-#   print(paste("Pvalue =",pvalue))
-#   return(invisible(perm_samples))
-# }
-# 
-# #----------------------- Fisher exact p-values -----------------------#
-# 
-# # read in matrices from Yasmine
-# load(paste0(Fisher_data_path, "rand_mat_c.rda"))
-# load(paste0(Fisher_data_path, "rand_mat_la.rda"))
-# load(paste0(Fisher_data_path, "rand_mat_ny.rda"))
-# load(paste0(Fisher_data_path, "rand_mat_p.rda"))
-# load(paste0(Fisher_data_path, "rand_mat_s.rda"))
-# 
-# 
-# # Chicago
-# c <- matched %>% filter(city == cities[1])
-# c<-c[,c(25,1:24,26:28)] # reorder columns
-# c$is_treated<-as.numeric(c$is_treated) # make is_treated numeric
-# dm_c<-find_test_stat_diff_means(c,c$death_sum3) # ATE: 12.4737
-# perm_c<-create_null_distribution(c,1,rand_mat_c,permutation_null_diff_means,dm_c,c$death_sum3,100000)
-# # p-value: .00018
-# 
-# 
-# # LA
-# la <- matched %>% filter(city == cities[2])
-# la<-la[,c(25,1:24,26:28)] # reorder columns
-# la$is_treated<-as.numeric(la$is_treated)
-# dm_la<-find_test_stat_diff_means(la,la$death_sum3) #ATE: 8.458
-# perm_la<-create_null_distribution(la,1,rand_mat_la,permutation_null_diff_means,dm_la,la$death_sum3,100000)
-# # p-value: .00764
-# 
-# # NY
-# ny <- matched %>% filter(city == cities[3])
-# ny<-ny[,c(25,1:24,26:28)] # reorder columns
-# ny$is_treated<-as.numeric(ny$is_treated)
-# dm_ny<-find_test_stat_diff_means(ny,ny$death_sum3) #ATE: 20.313
-# perm_ny<-create_null_distribution(ny,1,rand_mat_ny,permutation_null_diff_means,dm_ny,ny$death_sum3,100000)
-# # p-value: .00012
-# 
-# 
-# # Pittsburgh
-# p <- matched %>% filter(city == cities[4])
-# p<-p[,c(25,1:24,26:28)] # reorder columns
-# p$is_treated<-as.numeric(p$is_treated)
-# dm_p<-find_test_stat_diff_means(p,p$death_sum3) #ATE: .463
-# perm_p<-create_null_distribution(p,1,rand_mat_p,permutation_null_diff_means,dm_p,p$death_sum3,100000)
-# #p-value= .4192
-# 
-# 
-# # Seattle
-# s <- matched %>% filter(city == cities[5])
-# s<-s[,c(25,1:24,26:28)] # reorder columns
-# s$is_treated<-as.numeric(s$is_treated)
-# dm_s<-find_test_stat_diff_means(s,s$death_sum3) #ATE: 3.727
-# perm_s<-create_null_distribution(s,1,rand_mat_s,permutation_null_diff_means,dm_s,s$death_sum3,100000)
-# # p-value: .0072
-# 
-# 
-# #----------------------- adjusted p-values -----------------------#
-# 
-# all_p_values<-function(data){ # obtain all p-values or each city and iterations
-#   
-#   all_p_values<-data.frame(matrix(NA,nrow=100000,ncol=5))
-#   
-#   for(i in 1:5){
-#     
-#     for(j in 1:100000){
-#       
-#       all_p_values[j,i]<-sum(data[,i]>=(data[j,i]))/100000
-#       
-#     }
-#   }
-#   return(all_p_values)
-# }
-# 
-# 
-# min_p<-function(p_values){ # obtain minimum p-value for each iteration
-#   
-#   minimum<-vector()
-#   
-#   for(i in 1:100000){
-#     
-#     minimum[i]<-min(p_values[i,])
-#   }
-#   
-#   return(minimum)
-#   
-# }
-# 
-# all_test_stat <- data.frame("chi"=perm_c,"la"=perm_la,"ny"=perm_ny,"pitt"=perm_p,"seat"=perm_s)
-# #p_values <- all_p_values(all_test_stat)
-# #write.csv(p_values, file = "data/all_p_values.csv")
-# p_values <- read.csv(file = "data/all_p_values.csv")
-# 
-# minimum_p_values<-min_p(p_values)
-# 
-# adjusted_p<-function(minimum, obs){
-#   
-#   return(sum(minimum<=obs)/100000)
-#   
-# }
-# 
-# 
-# adjusted_p(minimum_p_values,.0018) # chicago
-# # .00866
-# 
-# adjusted_p(minimum_p_values,.00764) # la
-# # .03689
-# 
-# adjusted_p(minimum_p_values,.0012) # ny
-# # .00585
-# 
-# adjusted_p(minimum_p_values,.41945) # pitt
-# # .93279
-# 
-# adjusted_p(minimum_p_values,.00717) # seat
-# # .03514S
-# 
-# 
-# #----------------------- Fiducial intervals -----------------------#
-# 
-# # Chicago 
-# 
-# # [6.05,18.88]
-# # tau: 12.47
-# # p-value: .00018
-# 
-# c_interval<-fidiciual_matrix(rand_mat_c,seq(6.0,6.1,.01),1,38) 
-# c_interval<-fidiciual_matrix(rand_mat_c,seq(18.85,18.9,.01),1,38) 
-# View(c_interval)
-# 
-# 
-# # LA 
-# 
-# # [1.65,15.22]
-# # tau: 8.46
-# # p-value: .00764
-# la_interval<-fidiciual_matrix(rand_mat_la,seq(1.6,1.7,.01),2,59) 
-# la_interval<-fidiciual_matrix(rand_mat_la,seq(15.2,15.3,.01),2,59)
-# View(la_interval)
-# 
-# 
-# # New York 
-# 
-# # [10.24,30.41]
-# # tau: 20.3125
-# # p-value: .00012
-# ny_interval<-fidiciual_matrix(rand_mat_ny,seq(10.2,10.3,.01),3,32) 
-# ny_interval<-fidiciual_matrix(rand_mat_ny,seq(30.4,30.5,.01),3,32)
-# View(ny_interval)
-# 
-# 
-# # Pittsburgh 
-# 
-# # [-3.77,4.68]
-# # tau: .463
-# # p-value: .419
-# # counternull value: .75
-# 
-# p_interval<-fidiciual_matrix(rand_mat_p,seq(-3.8,-3.7,.01),4,41)
-# p_interval<-fidiciual_matrix(rand_mat_p,seq(4.6,4.7,.01),4,41)
-# View(p_interval)
-# 
-# 
-# # Seattle
-# 
-# # [.84,6.63]
-# # tau: 3.727
-# # p-value: .00717
-# s_interval<-fidiciual_matrix(rand_mat_s,seq(.8,.9,.01),5,33)
-# s_interval<-fidiciual_matrix(rand_mat_s,seq(6.6,6.7,.01),5,33)
-# View(s_interval)
-
-#------------------------------------------------------------#
-
 # read in results from Yasmine
 
 library(readxl)
-fisher_table <- read_excel("data/results.xlsx")
+fisher_diff <- read_excel("data/Fisher_results/Fisher_results.xlsx", sheet = "ATE")
+fisher_ratio <- read_excel("data/Fisher_results/Fisher_results.xlsx", sheet = "RR")
 
 
 ##############################################################################################
@@ -561,7 +291,8 @@ upper.CI.covs.unmatch <- vector()
 
 for(i in 1:length(cities)){
   negB.covs[[i]] <- glm.nb(death_sum3 ~ is_treated + 
-                             dow + month + o3_lag_3 + no2_lag_3, data = unmatched %>% filter(city == cities[i]))
+                             dow + month + o3_lag_3 + no2_lag_3,
+                           data = unmatched %>% filter(city == cities[i]))
   
   # calculate incidence rate ratio for treated vs. untreated
   IRR.covs.unmatch[i] <- negB.covs[[i]]$coefficients[2] %>% exp()
@@ -587,116 +318,16 @@ regression_table <- left_join(regression_table, regression_table_unmatched, by =
 
 all_results <- left_join(neyman_table, regression_table, by = "city") %>%
   left_join(., bayes_table, by = "city") %>%
-  left_join(., fisher_table, by = "city")
+  left_join(., fisher_diff, by = "city") %>%
+  left_join(., fisher_ratio, by = "city")
 
+write.csv(all_results, file = paste0(processed_data_path, "inference_results.csv"), row.names = FALSE)
 
-##############################################################################################
-#-------------------------  TABLES  -----------------------#
-##############################################################################################
-
-# table with number of treated/matched units in each city
-
-# table for unmatched data
-n_tab <- unmatched %>%
-  group_by(city, is_treated) %>%
-  summarise(n = n()) %>%
-  spread(key = "is_treated", value = "n") %>%
-  rename(n.control = `FALSE`,
-         n.treated = `TRUE`) %>%
-  as.data.frame()
-
-# add column for total number of days with data for each city
-n_tab$total <- total_obs$`n()`
-
-# add column for matched data
-n_tab$n.pair <- neyman_table$n/2
-
-# reformat
-n_tab <- n_tab[,c(1,4,2,3,5)]
-#row.names(n_tab) <- c(n_tab[,1])
-n_tab <- n_tab %>%
-  `row.names<-`(c("Chicago", "Los Angeles", "New York", "Pittsburgh", "Seattle")) %>%
-  dplyr::select(-c(city))
-
-# add row for % of treated units ("heat waves") that were had a control match
-n_tab$pct_matched <- (100*(n_tab$n.pair/n_tab$n.treated)) %>% round(1)
-
-# kable
-n_tab %>%
-  setNames(c("N total", "N control", 
-             "N treated", "N pair", 
-             "% Treated Units Matched")) %>%
-  kable(format = "html") %>%
-  kable_styling(bootstrap_options = c("striped")) # %>%
-  # save_kable(file = paste0(table_path, "matching_counts.png"))
-
-
-# make the column names subscript! (may not be possible in R script)
-
-#----------------------------------------------#
-
-# table for matching criteria
-
-# matched on:
-matched_on <- c("City", "Year", "Week of the year",
-                "Day of the week",
-                "NO2 day before experiment (ppb)", "O3 day before experiment (ppb)")
-matched_by <- c("exact", "0", "3", "exact", "5", "5")
-
-matched_tab <- data.frame(cov = matched_on,
-                          disc = matched_by)
-
-matched_tab %>%
-  setNames(c("Covariate", "Discrepancy Allowed")) %>%
-  kable(format = "html") %>%
-  kable_styling(bootstrap_options = c("striped"))
-
-
-#----------------------------------------------#
-
-# NEED TO MAKE NEW TABLES WITH ALL RESULTS (for appendix)
-
-
-
-# table for ATE
-
-# ATE_tab <- all_results
-# 
-# ATE_tab$city <- c("Chicago", "Los Angeles", "New York", "Pittsburgh", "Seattle")
-# ATE_tab$tau <- ATE_tab$tau %>% round(1)
-# ATE_tab$pairs <- ATE_tab$n / 2
-# 
-# ATE_tab %>%
-#   #dplyr::select(city, pairs, tau, fisher.p.value.tau) %>%
-#   rename(` ` = city,
-#          `N Pairs` = pairs,
-#          A.T.E. = tau,
-#          `Fisher adjusted p-value` = `adjusted p_value`) %>% 
-#   kbl() %>%
-#   kable_paper(full_width = F, "striped")
-#   #kable_material(c("striped", full_width = F))
-
-# table for RR
-
-# IRR_table$city <- c("Chicago", "Los Angeles", "New York", "Pittsburgh", "Seattle")
-# IRR_table$IRR <- IRR_table$IRR %>% round(4)
-# IRR_table$pairs <- big_tau$pairs
-# IRR_table <- IRR_table[,c(1,4,2,3)]
-# 
-# IRR_table %>%
-#   dplyr::select(city, pairs, IRR, fisher.p.value.IRR) %>%
-#   rename(` ` = city,
-#          `N Pairs` = pairs,
-#          `Rate Ratio (Unadjusted)` = IRR,
-#          `Fisher p-value (Unadjusted)` = fisher.p.value.IRR) %>% 
-#   kbl() %>%
-#   kable_material(full_width = F)
 
 ##############################################################################################
 #-------------------------  FIGURES  -----------------------#
 ##############################################################################################
 
-#----- Split Violin Plot -----#
 
 city_names <- c(
   `chic` = "Chicago",
@@ -706,23 +337,7 @@ city_names <- c(
   `seat` = "Seattle"
 )
 
-# library(introdataviz)
-# ggplot(matched, aes(x = 1, y = death_sum3, fill = is_treated)) +
-#   geom_split_violin(col = "white") +
-#   facet_wrap(~city, nrow = 1, scales = "free", labeller = as_labeller(city_names)) +
-#   labs(x = "Density", 
-#        y = "Deaths per 3 Day Period",
-#        fill = "") +
-#   scale_fill_manual(labels = c("Control", "Treated"),
-#                     values = c("orange", "firebrick3")) +
-#   theme_classic() +
-#   theme(axis.title.x = element_blank(),
-#         axis.text.x = element_blank(),
-#         axis.ticks.x = element_blank(),
-#         strip.background = element_blank(),
-#         axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)))
-
-# try boxplots instead
+# boxplots
 png(file = paste0(fig_path, "mortality_boxplots.png"), width = 700, height = 300)
 
 matched %>%
@@ -739,10 +354,16 @@ matched %>%
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         strip.background = element_blank(),
-        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)))
+        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()
+        )
 
 dev.off()
 
+
+theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
 
 #----- ATE -----#
 
@@ -757,20 +378,18 @@ all_results %>%
   geom_errorbar(aes(xmin = lower.CI.tau.paired, xmax = upper.CI.tau.paired, col = "Paired Variance"), 
                 size = 1, width = 0.15) +
   # Fiducial error bars
-  geom_errorbar(aes(xmin = fisher_low, xmax = fisher_high, col = "Fisherian"), 
+  geom_errorbar(aes(xmin = fisher_ATE_low, xmax = fisher_ATE_high, col = "Fisherian"), 
                 size = 1, width = 0.15, position = position_nudge(y = -0.15)) +
   # Bayesian error bars
   geom_errorbar(aes(xmin = lower.CI.bayes, xmax = upper.CI.bayes, col = "Bayesian"),
                 size = 1, width = 0.15, position = position_nudge(y = -0.3)) +
   # points for tau
-  geom_point(aes(x = tau, y = city, color = "ATE"), size = 3) +
-  geom_point(aes(x = tau, y = city), size = 3, position = position_nudge(y = 0.15)) +
-  geom_point(aes(x = tau, y = city), size = 3, position = position_nudge(y = -0.15)) +
+  geom_point(aes(x = tau, y = city, color = "ATE"), size = 2) +
+  geom_point(aes(x = tau, y = city), size = 2, position = position_nudge(y = 0.15)) +
+  geom_point(aes(x = tau, y = city), size = 2, position = position_nudge(y = -0.15)) +
   # points for Bayes
-  geom_point(aes(x = est.bayes, y = city), size = 3, col = "gold", position = position_nudge(y = -0.3)) +
+  geom_point(aes(x = est.bayes, y = city), size = 2, col = "gold", position = position_nudge(y = -0.3)) +
   # labels
-  #geom_text(aes(label = round(tau, 1)), nudge_y = .3) + 
-  #geom_text(aes(x = tau.bayes, label = round(tau.bayes, 1)), nudge_y = -.45, col = "#fd7f6f") + 
   labs(title = "",
        x = "Estimated Average Treatment Effect",
        y = "",
@@ -805,10 +424,10 @@ all_results %>%
   ggplot(aes(y = city)) +
   # without pairs
   geom_errorbar(aes(xmin = lower.CI, xmax = upper.CI, col = "Unadjusted"), 
-                size = 1, width = 0.15, position = position_nudge(y = 0.15)) +
+                size = 1, width = 0.15, position = position_nudge(y = 0.3)) +
   # Fiducial (for IRR without pairs)
-  # geom_errorbar(aes(xmin = lower.CI.fid, xmax = upper.CI.fid, col = "Fiducial"), 
-  #               size = 1, width = 0.2, position = position_nudge(y = 0.2), lty = 2) +
+  geom_errorbar(aes(xmin = fisher_RR_low, xmax = fisher_RR_high, col = "Fiducial"),
+                size = 1, width = 0.15, position = position_nudge(y = 0.15)) +
   # with pairs
   geom_errorbar(aes(xmin = lower.CI.pairs, xmax = upper.CI.pairs, col = "Adjusted by Pair"), 
                 size = 1, width = 0.15) +
@@ -819,18 +438,18 @@ all_results %>%
   geom_errorbar(aes(xmin = lower.CI.covs.unmatch, xmax = upper.CI.covs.unmatch, col = "Original Data (Adjusted)"), 
                 size = 1, width = 0.15, position = position_nudge(y = -0.3)) +
   # points for tau
+  geom_point(aes(x = IRR, y = city), size = 2, col = "#b881b1", position = position_nudge(y = 0.3)) +
   geom_point(aes(x = IRR, y = city), size = 2, col = "#b881b1", position = position_nudge(y = 0.15)) +
   geom_point(aes(x = IRR.pairs, y = city), size = 2, col = "#e54a50") +
   geom_point(aes(x = IRR.covs, y = city), size = 2, col = "#ffa600", position = position_nudge(y = -0.15)) +
   geom_point(aes(x = IRR.covs.unmatch, y = city), size = 2, col = "#0d88e6", position = position_nudge(y = -0.3)) +
-  #geom_point(aes(x = IRR, y = city), size = 2, col = "#b30000", position = position_nudge(y = 0.4)) +
   labs(title = "",
        x = "Rate Ratio",
        y = "",
        color = "Regression Model") +
   # manual legend
   scale_color_manual(values = c("Unadjusted" = "#b881b1", 
-                                #"Fiducial" = "#b30000", 
+                                "Fiducial" = "#b30000", 
                                 "Adjusted by Pair" = "#e54a50", 
                                 "Adjusted" = "#ffa600", 
                                 "Original Data (Adjusted)" = "#0d88e6")) +

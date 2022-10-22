@@ -349,17 +349,17 @@ month_comp <- dat_all %>%
   mutate(percent = 100*count/sum(count)) %>%
   ggplot() +
   # all data
-  geom_line(aes(x = month, y = percent, group = 1, color = "Initial Data"), size = 2) +
+  geom_line(aes(x = month, y = percent, group = 1, color = "Initial Data"), size = 1.5) +
   # matched data
-  geom_line(aes(x = month, y = percent, group = 1, color = "Matched Data"), size = 2,
+  geom_line(aes(x = month, y = percent, group = 1, color = "Matched Data"), size = 1.5,
             data = dat_after %>%
               group_by(month) %>%
               summarise(count = n()) %>%
               mutate(percent = 100*count/sum(count))) +
   #ylim(0, 30) +
   # manual legend
-  scale_color_manual(values = c("Initial Data" = pal[1], 
-                                "Matched Data" = pal[2])) +
+  scale_color_manual(values = c("Initial Data" = pal2[1], 
+                                "Matched Data" = pal2[2])) +
   labs(color = "") +
   theme_minimal() #+
 #theme(axis.title.y = element_text(angle=0))
@@ -372,17 +372,17 @@ year_comp <- dat_all %>%
   mutate(percent = 100*count/sum(count)) %>%
   ggplot() +
   # all data
-  geom_line(aes(x = year, y = percent, group = 1, color = "Initial Data"), size = 2) +
+  geom_line(aes(x = year, y = percent, group = 1, color = "Initial Data"), size = 1.5) +
   # matched data
-  geom_line(aes(x = year, y = percent, group = 1, color = "Matched Data"), size = 2,
+  geom_line(aes(x = year, y = percent, group = 1, color = "Matched Data"), size = 1.5,
             data = dat_after %>%
               group_by(year) %>%
               summarise(count = n()) %>%
               mutate(percent = 100*count/sum(count))) +
   ylim(0, 13) +
   # manual legend
-  scale_color_manual(values = c("Initial Data" = pal[1], 
-                                "Matched Data" = pal[2])) +
+  scale_color_manual(values = c("Initial Data" = pal2[1], 
+                                "Matched Data" = pal2[2])) +
   labs(color = "") +
   theme_minimal()
 
@@ -394,25 +394,25 @@ week_comp <- dat_all %>%
   mutate(percent = 100*count/sum(count)) %>%
   ggplot() +
   # all data
-  geom_line(aes(x = week, y = percent, group = 1, color = "Initial Data"), size = 2) +
+  geom_line(aes(x = week, y = percent, group = 1, color = "Initial Data"), size = 1.5) +
   # matched data
-  geom_line(aes(x = week, y = percent, group = 1, color = "Matched Data"), size = 2,
+  geom_line(aes(x = week, y = percent, group = 1, color = "Matched Data"), size = 1.5,
             data = dat_after %>%
               group_by(week) %>%
               summarise(count = n()) %>%
               mutate(percent = 100*count/sum(count))) +
   #ylim(0, 8) +
   # manual legend
-  scale_color_manual(values = c("Initial Data" = pal[1], 
-                                "Matched Data" = pal[2])) +
+  scale_color_manual(values = c("Initial Data" = pal2[1], 
+                                "Matched Data" = pal2[2])) +
   labs(color = "") +
   theme_minimal()
 
 
 # all comparisons in one plot
-png(file = paste0(fig_path, "initial_vs_matched.png"), width = 500, height = 700)
+png(file = paste0(fig_path, "initial_vs_matched.png"), width = 500, height = 400)
 
-grid.arrange(month_comp, year_comp, week_comp)
+ggarrange(month_comp, year_comp, week_comp, common.legend = TRUE)
 
 dev.off()
 
