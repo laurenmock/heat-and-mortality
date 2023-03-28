@@ -94,11 +94,39 @@ raw_data$death <- subset(raw_data_mortality, agecat == "65to74")$death +
 #--------- check for missing data ---------#
 #------------------------------------------------------------------------#
 
+# count total number of unique days in original data
+raw_data |>
+  filter(month(raw_data$date) %in% c(6,7,8,9)) |>
+  nrow()
+
+# count total number of days missing outcome (death)
+raw_data |>
+  filter(month(raw_data$date) %in% c(6,7,8,9)) |>
+  pull(death) |>
+  is.na() |>
+  sum()
+
+# count total number of days missing exposure (temp)
+raw_data |>
+  filter(month(raw_data$date) %in% c(6,7,8,9)) |>
+  pull(tmax) |>
+  is.na() |>
+  sum()
+
+
 # Specify the relevant covariates to include
 # relevant_variables <- names(raw_data) # all covariates
-relevant_variables = c("death",
-                       "tmpd","tmax","dptp","rhum",
+relevant_variables = c("dptp","rhum",
                        "pm10","pm25","o3","no2", "so2","co")
+
+for(i in 1:length(relevant_variables)){
+  num_miss = raw_data |>
+    filter(month(raw_data$date) %in% c(6,7,8,9)) |>
+    pull(relevant_variables[i]) |>
+    is.na() |>
+    sum()
+  cat(relevant_variables[i], num_miss, "\n")
+}
 
 # check in raw data
 if (exists("relevant_variables") && !is.null(relevant_variables)){
@@ -222,22 +250,39 @@ gathered <- processed_data %>%
   filter(month %in% c("Jun", "Jul", "Aug", "Sep")) %>%
   gather(key = "poll_name", value = "poll_value", c(12,16:21)) 
 
-gathered$poll_name <- factor(gathered$poll_name, 
-                              levels = c("tmax", "o3", "no2", "so2", "co", "pm25", "pm10"))
+# fix city factor levels
+gathered$city <- factor(gathered$city,
+                        levels = c("pitt", "seat", "chic", "la", "ny"))
+levels(gathered$city) <- c("Pittsburgh", "Seattle", "Chicago", "LA", "NY")
 
-png(file = paste0(EDA_path, "summer_trends.png"), width = 500, height = 600)
+# fix pollutant factor levels
+gathered$poll_name <- factor(gathered$poll_name,
+                             levels = c("tmax", "o3", "no2", "so2", "co", "pm25", "pm10"))
+levels(gathered$poll_name) <- c("Temp.[max.]", "O[3]", "NO[2]", "SO[2]", "CO", "PM[2.5]", "PM[10]")
+
+
+# trends_labels <- c(
+#   `no2` = "Chicago"
+# )
+
+pdf(file = paste0(EDA_path, "summer_trends.pdf"), width = 5, height = 6)
 
 gathered %>%
   group_by(week, city, poll_name) %>%
   summarise(mean_poll = mean(poll_value, na.rm = TRUE)) %>%
   ggplot() +
   geom_line(aes(x = week, y = mean_poll, color = poll_name), lwd = 1.3) +
-  facet_grid(poll_name ~ city, scales = "free") +
-  labs(title = "Summer Trends in TMax and Pollutants",
-       x = "Week of the Year", 
+  scale_color_brewer(palette = "Dark2") +
+  facet_grid(poll_name ~ city, 
+             scales = "free",
+             labeller = label_parsed) +
+  labs(x = "Week of the Year", 
        y = "Mean Pollutant Level") +
   theme_bw() +
-  theme(legend.position = "none")
+  theme(legend.position = "none",
+        panel.border = element_rect(colour = "gray", fill = NA, size = 0.5),
+        strip.background = element_rect(fill = "white", color = "gray"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
 
 dev.off()
 

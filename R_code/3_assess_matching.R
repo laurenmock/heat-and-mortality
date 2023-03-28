@@ -14,6 +14,7 @@ library(tidyverse)
 library(pander)
 library(gridExtra)
 library(ggpubr)
+library(scales)
 
 
 #------------------------------------------------------------------------#
@@ -36,10 +37,10 @@ trt_ex_path <- "figures/treatment_examples/"
 # load processed data (before matching)
 dat_before <- read.csv(paste0(processed_data_path, "all_processed.csv"))
 
-#load matched data (after matching)
+# load matched data (after matching)
 dat_after <- read.csv(paste0(processed_data_path, "matched.csv"))
 
-# create column in matched data to indicate that these rows were in the matched subset (after join below)
+# create column in matched data to indicate that these rows were in the matched sub (after join below)
 dat_after$matched <- 1
 
 #------------------------------------------------------------------------------------------------#
@@ -61,6 +62,32 @@ dat_all$matched <- ifelse(is.na(dat_all$matched), 0, 1)
 
 
 #------------------------------------------------------------------------------------------------#
+
+# get a new dataframe that can be faceted to original and matched
+# where matched data is included in original
+
+dat_all$sub <- "Original Data"
+dat_after$sub <- "Matched Data"
+init_v_match <- rbind(dat_all, dat_after)
+init_v_match$sub <- factor(init_v_match$sub, levels = c("Original Data", "Matched Data"))
+
+# has duplicate rows for matched data (with "sub" column to differentiate)
+
+#------------------------------------------------------------------------------------------------#
+#------------------- missing covariates in matched data -------------------#
+#------------------------------------------------------------------------------------------------#
+
+relevant_variables <- c("pm10_lag_3","pm25_lag_3","o3_lag_3","no2_lag_3")
+
+for(i in 1:length(relevant_variables)){
+  num_miss = dat_after |>
+    pull(relevant_variables[i]) |>
+    is.na() |>
+    sum()
+  cat(relevant_variables[i], num_miss, "\n")
+}
+
+#------------------------------------------------------------------------------------------------#
 #------------------- Love Plots (code from Alice) -------------------#
 #------------------------------------------------------------------------------------------------#
 
@@ -71,14 +98,14 @@ stdif <- function(X, W){
   return(mean_diff/SE)
 }
 
-covs <- c("no2_lag_3", "no2_lag_4", "no2_lag_5",
-          "o3_lag_3", "o3_lag_4", "o3_lag_5", 
-          "tmax_lag_3", "tmax_lag_4", "tmax_lag_5",
+covs <- c("no2_lag_5", "no2_lag_4", "no2_lag_3",
+          "o3_lag_5", "o3_lag_4", "o3_lag_3", 
+          "tmax_lag_5", "tmax_lag_4", "tmax_lag_3",
           "month_Sep", "month_Aug", "month_Jul", "month_Jun", "year")
 
-cov_labs <- c(expression('NO'[2]*' Lag 1'), expression('NO'[2]*' Lag 2'), expression('NO'[2]*' Lag 3'),
-              expression('O'[3]*' Lag 1'), expression('O'[3]*' Lag 2'), expression('O'[3]*' Lag 3'),
-              "Temp. Lag 1", "Temp. Lag 2", "Temp. Lag 3",
+cov_labs <- c(expression('NO'[2]*' Lag 3'), expression('NO'[2]*' Lag 2'), expression('NO'[2]*' Lag 1'),
+              expression('O'[3]*' Lag 3'), expression('O'[3]*' Lag 2'), expression('O'[3]*' Lag 1'),
+              "High Temp. Lag 3", "High Temp. Lag 2", "High Temp. Lag 1",
               "September", "August", "July", "June", "Year")
 
 #-----------------------------------------#
@@ -91,17 +118,14 @@ stdif_before <- sapply(dat_before %>% dplyr::select(covs),
 stdif_after <- sapply(dat_after %>% dplyr::select(covs),
                        function(x) stdif(x, dat_after %>% pull(is_treated)))
 
-
 # love plot
 
-png(file = paste0(fig_path, "love_plot.png"), 
-    width = 500, height = 500)
+pdf(file = paste0(fig_path, "love_plot.pdf"), width = 6, height = 6)
 
 # set margins so we can see the whole plot
-par(mar=c(6,6,4,4))
+par(mar=c(4,8,4,4))
 plot(stdif_before, 1:length(covs), 
      axes = FALSE, 
-     main = "Love Plot",
      ylab = "",
      xlab = "Standardized Difference in Covariate Means", 
      xlim = c(-1,2),
@@ -115,7 +139,7 @@ abline(h = 1:length(covs), col = "cornsilk3", lty=6)
 points(stdif_after, 1:length(covs), pch = 17, col = "steelblue1", cex = 1.5)
 legend("topright", legend = c("Initial Data", "Matched Data"), 
        col = c("black", "steelblue1"), pch = c(1, 17), box.col = "cornsilk3",
-       bg = "white", pt.cex = 1.5, cex = 1.2
+       bg = "white", pt.cex = 1, cex = 1
        )
 # reset margins to default
 par(mar=c(4,4,4,4))
@@ -127,7 +151,7 @@ dev.off()
 #------------------------------------------------------------------------------------------------#
 
 # color palette
-pal <- c("firebrick3", "orange")
+pal <- c("orange", "firebrick3")
 
 #----------------- week of the year density -----------------#
 
@@ -135,36 +159,52 @@ pal <- c("firebrick3", "orange")
 dat_all$is_treated <- as.character(dat_all$is_treated)
 dat_all$is_treated <- factor(dat_all$is_treated, levels = c("TRUE", "FALSE"))
 
-# ggplot layers for the treated and control density plots
-density_gg <- list(
-  geom_density(aes(week, fill = is_treated), alpha = 0.5, color = "white"),
-  xlab("Week of the Year"),
-  ylab("Density"),
-  labs(fill = ""),
-  scale_fill_manual(labels = c("Treated", "Control"),
-                    values = c("firebrick3", "orange")),
-  ylim(0,.1),
-  theme_classic(),
+# ggplot layers for the treated and control week density plots
+# density_gg <- list(
+#   geom_density(aes(week, fill = is_treated), alpha = 0.7, color = "white"),
+#   xlab("Week of the Year"),
+#   ylab("Density"),
+#   labs(fill = ""),
+#   scale_fill_manual(labels = c("Treated (Hot)", "Control (Warm)"),
+#                     values = pal),
+#   scale_x_continuous(expand = c(0, 0), breaks = pretty_breaks()),
+#   scale_y_continuous(limits = c(0, 0.1), expand = c(0, 0)),
+#   theme_classic(),
+#   theme(plot.title = element_text(size = 12),
+#         axis.title = element_text(size = 10),
+#         legend.text = element_text(size = 10),
+#         legend.key.size = unit(0.8, 'cm'))
+# )
+
+#---------- week of the year -----------#
+
+pdf(file = paste0(fig_path, "week_density.pdf"), width = 8, height = 4)
+
+init_v_match %>%
+  ggplot() +
+  geom_density(aes(week, col = is_treated, fill = is_treated), alpha = 0.5, size = 1.5) +
+  xlab("Week of the Year") +
+  ylab("Density") +
+  labs(fill = "") +
+  scale_color_manual(name = "",
+                     labels = c("Control (Warm)", "Treated (Hot)"),
+                  values = pal) +
+  scale_fill_manual(name = "",
+                    labels = c("Control (Warm)", "Treated (Hot)"),
+                    values = pal) +
+  scale_x_continuous(expand = c(0, 0), breaks = pretty_breaks()) + 
+  scale_y_continuous(limits = c(0, 0.1), expand = c(0, 0)) +
+  theme_bw() +
   theme(plot.title = element_text(size = 12),
-        axis.title = element_text(size = 10))
-)
-
-# initial data
-week1 <- dat_all %>%
-  ggplot() +
-  ggtitle("Initial Data") + 
-  density_gg
-
-# matched data
-week2 <- dat_all %>%
-  filter(matched == 1) %>%
-  ggplot() +
-  ggtitle("Matched Data") +
-  density_gg
-
-png(file = paste0(fig_path, "week_density.png"), width = 500, height = 300)
-
-ggarrange(week1, week2, nrow = 1, common.legend = TRUE)
+      axis.title = element_text(size = 10),
+      legend.text = element_text(size = 10),
+      legend.key.size = unit(0.8, 'cm'),
+      legend.position = "bottom",
+      panel.border = element_rect(colour = "gray", fill = NA, size = 0.5),
+      strip.background = element_rect(fill = "white", color = "gray"),
+      panel.grid.major = element_blank(), panel.grid.minor = element_blank(),
+      strip.text.x = element_text(size = 12)) + 
+  facet_grid(~sub)
 
 dev.off()
 
@@ -174,21 +214,24 @@ dev.off()
 # ggplot layers for all time series
 time_series_gg = list(
   geom_line(size = 1.2),
-    geom_point(size = 2.5, 
-               shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3)),
-               stroke = 2,
-               # shape = 16,
-               #alpha = c(rep(1,3), rep(0.5,3), rep(1,3), rep(0.5,3))
-               ),
-    scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
-                                "Day 1", "Day 2", "Day 3")),
-    scale_color_manual(labels = c("Control", "Treated"),
-                       values = rev(pal)),
-    theme_classic(),
-    theme(legend.text = element_text(size = 14),
-          legend.key.size = unit(1.5, 'cm'),
-          panel.border = element_rect(colour = "black", fill=NA, size=1),
-          plot.title = element_text(size = 15))
+  # geom_point(size = 2.5, 
+  #            shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3)),
+  #            stroke = 2,
+  #            # shape = 16,
+  #            #alpha = c(rep(1,3), rep(0.5,3), rep(1,3), rep(0.5,3))
+  #            ),
+  geom_point(size = 2.5,
+             shape = 16),
+  scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1", 
+                              "Day 1", "Day 2", "Day 3")),
+  scale_color_manual(labels = c("Control (Warm)", "Treated (Hot)"),
+                     values = rev(pal)),
+  theme_classic(),
+  theme(legend.text = element_text(size = 12),
+        legend.key.size = unit(1.5, 'cm'),
+        #line = element_blank(), # remove axes
+        #panel.border = element_rect(colour = "black", fill = NA, size = 0.5), # add border
+        plot.title = element_text(size = 12))
 )
 
 
@@ -207,10 +250,11 @@ tmax_means$lag <- factor(tmax_means$lag, levels = c("tmax_lag_5", "tmax_lag_4", 
 # tmax plot
 tmax_lag <- tmax_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_tmax, group = is_treated, color = is_treated)) +
-  labs(title = "High Temperature", 
+  labs(title = "Max. Temperature", 
        x = "", 
-       y = expression(paste("Mean High Temp. (", ~degree, "F)")), 
+       y = expression(paste("Mean Max. Temp. (", ~degree, "F)")), 
        color = "") + 
+  ylim(62, 88) + 
   time_series_gg
 
 
@@ -231,8 +275,9 @@ o3_lag <- o3_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_o3, group = is_treated, color = is_treated)) +
   labs(title = expression('O'[3]), 
        x = "", 
-       y = expression('Mean O'[3]*' (ppb)'), 
+       y = expression('Mean O'[3]*' (\u00b5g/m\u00b3)'), 
        color = "") + 
+  ylim(22, 34) + 
   time_series_gg
 
 
@@ -253,10 +298,10 @@ no2_lag <- no2_means %>%
   ggplot(aes(x = as.factor(lag), y = mean_no2, group = is_treated, color = is_treated)) +
   labs(title = expression('NO'[2]), 
        x = "", 
-       y = expression('Mean NO'[2]*' (ppb)'), 
+       y = expression('Mean NO'[2]*' (\u00b5g/m\u00b3)'), 
        color = "") +
+  ylim(22, 34) + 
   time_series_gg
-
 
 ### PM10 ###
 
@@ -277,6 +322,7 @@ pm10_lag <- pm10_means %>%
        x = "", 
        y = expression('Mean PM'[10]*' (\u00b5g/m\u00b3)'), 
        color = "") +
+  ylim(10, 50) + 
   time_series_gg
 
 
@@ -299,6 +345,7 @@ pm25_lag <- pm25_means %>%
        x = "", 
        y = expression('Mean PM'[2.5]*' (\u00b5g/m\u00b3)'), 
        color = "") +
+  ylim(10, 50) + 
   time_series_gg
 
 
@@ -321,14 +368,16 @@ rhum_lag <- rhum_means %>%
        x = "", 
        y = "Relative Humidity (%)", 
        color = "") +
+  ylim(62, 88) + 
   time_series_gg
 
 ###
 
 # all lags in one plot
-png(file = paste0(fig_path, "time_series.png"), width = 700, height = 500)
+pdf(file = paste0(fig_path, "time_series.pdf"), width = 10, height = 5)
 
-ggarrange(tmax_lag, o3_lag, no2_lag, pm10_lag, pm25_lag, rhum_lag, common.legend = TRUE)
+ggarrange(tmax_lag, o3_lag, no2_lag, rhum_lag, pm10_lag, pm25_lag, 
+          common.legend = TRUE, legend = "bottom")
 
 dev.off()
 
@@ -337,92 +386,118 @@ dev.off()
 #------------------- Covariate Balance in Initial vs. Matched Data  -------------------#
 #------------------------------------------------------------------------------------------------#
 
-# new color palette
-pal2 <- c("gold3", "slateblue2")
+#---------- year -----------#
 
-# month
-dat_all$month <- factor(dat_all$month, levels = c("Jun", "Jul", "Aug", "Sep"))
+# plot
+year_plot <- init_v_match |>
+  ggplot() +
+  geom_density(aes(year, fill = as.factor(sub)), alpha = 0.7, color = "white") +
+  labs(x = "Year", y = "Density", fill = "") +
+  scale_fill_manual(labels = c("Original Data", "Matched Data"),
+                    values = c("#7570B3", "#66A61E")) +
+  scale_x_continuous(expand = c(0, 0), breaks = pretty_breaks()) +
+  scale_y_continuous(limits = c(0, 0.1), expand = c(0, 0)) +
+  theme_classic() +
+  theme(legend.position = "bottom")
 
-month_comp <- dat_all %>%
+
+#---------- week of the year ----------#
+
+# plot
+week_plot <- init_v_match |>
+  ggplot() +
+  geom_density(aes(week, fill = as.factor(sub)), alpha = 0.5, color = "white") +
+  labs(x = "Week of the Year", y = "Density", fill = "") +
+  scale_fill_manual(labels = c("Original Data", "Matched Data"),
+                    values = c("#377EB8", "#E7298A")) +
+  scale_x_continuous(expand = c(0, 0), breaks = pretty_breaks()) +
+  scale_y_continuous(limits = c(0, 0.1), expand = c(0, 0)) +
+  theme_classic() +
+  theme(legend.position = "bottom")
+
+# continuous comparisons
+pdf(file = paste0(fig_path, "initial_vs_matched_cont.pdf"), width = 10, height = 4)
+ggarrange(year_plot, week_plot, ncol = 2)
+dev.off()
+
+#---------- month ----------#
+
+# get data frames with percentages
+month_before <- dat_all %>%
   group_by(month) %>%
   summarise(count = n()) %>%
-  mutate(percent = 100*count/sum(count)) %>%
-  ggplot() +
-  # all data
-  geom_line(aes(x = month, y = percent, group = 1, color = "Initial Data"), size = 1.5) +
-  # matched data
-  geom_line(aes(x = month, y = percent, group = 1, color = "Matched Data"), size = 1.5,
-            data = dat_after %>%
-              group_by(month) %>%
-              summarise(count = n()) %>%
-              mutate(percent = 100*count/sum(count))) +
-  #ylim(0, 30) +
-  # manual legend
-  scale_color_manual(values = c("Initial Data" = pal2[1], 
-                                "Matched Data" = pal2[2])) +
-  labs(color = "") +
-  theme_minimal() #+
-#theme(axis.title.y = element_text(angle=0))
-
-
-# year
-year_comp <- dat_all %>%
-  group_by(year) %>%
+  mutate(percent = 100*count/sum(count),
+         type = "Original Data")
+month_after <- dat_after %>%
+  group_by(month) %>%
   summarise(count = n()) %>%
-  mutate(percent = 100*count/sum(count)) %>%
+  mutate(percent = 100*count/sum(count),
+         type = "Matched Data")
+month_comp <- rbind(month_before, month_after)
+
+# fix month labels
+month_comp$month <- factor(month_comp$month, levels = c("Jun", "Jul", "Aug", "Sep"))
+levels(month_comp$month) <- c("June", "July", "Aug.", "Sept.")
+
+# fix data labels
+month_comp$type <- factor(month_comp$type, levels = c("Original Data", "Matched Data"))
+
+# plot
+month_plot <- month_comp |>
   ggplot() +
-  # all data
-  geom_line(aes(x = year, y = percent, group = 1, color = "Initial Data"), size = 1.5) +
-  # matched data
-  geom_line(aes(x = year, y = percent, group = 1, color = "Matched Data"), size = 1.5,
-            data = dat_after %>%
-              group_by(year) %>%
-              summarise(count = n()) %>%
-              mutate(percent = 100*count/sum(count))) +
-  ylim(0, 13) +
-  # manual legend
-  scale_color_manual(values = c("Initial Data" = pal2[1], 
-                                "Matched Data" = pal2[2])) +
-  labs(color = "") +
-  theme_minimal()
+  geom_bar(aes(fill = month, x = type, y = percent), 
+           position="fill", stat="identity", color = "white", alpha = 0.5) +
+  labs(x = "", y = "Proportion", fill = "Month") +
+  scale_fill_brewer(palette = "Set1") + 
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_classic()
 
 
-# week
-week_comp <- dat_all %>%
-  group_by(week) %>%
+
+#----------- day of week ----------#
+
+# get dataframe with percentages
+dow_before <- dat_all %>%
+  group_by(dow) %>%
   summarise(count = n()) %>%
-  mutate(percent = 100*count/sum(count)) %>%
+  mutate(percent = 100*count/sum(count),
+         type = "Original Data")
+dow_after <- dat_after %>%
+  group_by(dow) %>%
+  summarise(count = n()) %>%
+  mutate(percent = 100*count/sum(count),
+         type = "Matched Data")
+dow_comp <- rbind(dow_before, dow_after)
+
+# reorder levels
+dow_comp$dow <- factor(dow_comp$dow, levels = c("Monday", "Tuesday", "Wednesday", "Thursday",
+                                                    "Friday", "Saturday", "Sunday"))
+
+# fix data labels
+dow_comp$type <- factor(dow_comp$type, levels = c("Original Data", "Matched Data"))
+
+# plot
+dow_plot <- dow_comp |>
   ggplot() +
-  # all data
-  geom_line(aes(x = week, y = percent, group = 1, color = "Initial Data"), size = 1.5) +
-  # matched data
-  geom_line(aes(x = week, y = percent, group = 1, color = "Matched Data"), size = 1.5,
-            data = dat_after %>%
-              group_by(week) %>%
-              summarise(count = n()) %>%
-              mutate(percent = 100*count/sum(count))) +
-  #ylim(0, 8) +
-  # manual legend
-  scale_color_manual(values = c("Initial Data" = pal2[1], 
-                                "Matched Data" = pal2[2])) +
-  labs(color = "") +
-  theme_minimal()
+  geom_bar(aes(fill = as.factor(dow), x = type, y = percent), 
+           position="fill", stat="identity", color = "white", alpha = 0.5) +
+  labs(x = "", y = "Proportion", fill = "Day of Week") +
+  scale_fill_brewer(palette = "Dark2") + 
+  scale_x_discrete(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  theme_classic()
 
 
-# all comparisons in one plot
-png(file = paste0(fig_path, "initial_vs_matched.png"), width = 500, height = 400)
-
-ggarrange(month_comp, year_comp, week_comp, common.legend = TRUE)
-
+# categorical comparisons
+pdf(file = paste0(fig_path, "initial_vs_matched_cat.pdf"), width = 11, height = 4)
+ggarrange(month_plot, dow_plot, ncol = 2)
 dev.off()
 
 
 #------------------------------------------------------------------------------------------------#
 #------------------- Examples to Visualize Treatment/Time Series  -------------------#
 #------------------------------------------------------------------------------------------------#
-
-# Note: I (Lauren) made these figures for my presentation. I don't think this type of figure
-# would go in a journal article, but I'll leave the figures in here just in case
 
 #-------------- example for tmax with just one pair ----------------------#
 
@@ -474,35 +549,40 @@ find_ex <- dat_before_undef %>%
   dplyr::select(date, tmax, is_treated)
 
 days <- rep(c("Day 1", "Day 2", "Day 3"), 3)
-trts <- c(rep("Hot", 3), rep ("Warm", 3), rep("Undefined", 3))
+trts <- c(rep ("Warm", 3), rep("Hot", 3), rep("Undefined", 3))
 
 mini_ex <- data.frame(date = days,
                       is_treated = trts,
-                      tmax = c(82, 85, 91, 75, 77, 76, 82, 80, 74))
+                      tmax = c(75, 77, 76, 82, 85, 91, 82, 80, 74))
 
-mini_ex$is_treated <- factor(mini_ex$is_treated, levels = c("Hot", "Warm", "Undefined"))
+mini_ex$is_treated <- factor(mini_ex$is_treated, levels = c("Warm", "Hot", "Undefined"))
 
-png(file = paste0(trt_ex_path, "trt_cntrl_undef.png"), width = 500, height = 200)
+
+pdf(file = paste0(trt_ex_path, "trt_cntrl_undef.pdf"), width = 7, height = 2)
 
 # plot treatment examples
 mini_ex %>%
   ggplot(aes(x = as.factor(date), y = tmax, group = is_treated, color = is_treated)) +
+  geom_hline(aes(yintercept = 80, col = "median"), lty = 2) +
   geom_line() +
   geom_point(size = 3) +
-  labs(title = "Daily High Temperature in Los Angeles in September 1990", 
-       x = "", y = expression(paste(~degree, "F")), color = "Time Period") +
+  labs(x = "", y = expression(paste(~degree, "F")), color = "") +
   ylim(73, 92) +
-  geom_hline(aes(yintercept = 80, col = "median"), lty = 2) +
-  scale_color_manual(labels = c("Sep. 2 \u2013 Sep. 4", "Sep. 16 \u2013 Sep. 18", 
+  scale_color_manual(labels = c("Sep. 16 \u2013 Sep. 18", "Sep. 2 \u2013 Sep. 4", 
                                 "Sep. 25 \u2013 Sep. 27", "LA Summer Median"),
-                     values = c("Hot" = pal[1], 
-                                "Warm" = pal[2], 
-                                "Undefined" = "#C77CFF", 
+                     values = c("Warm" = "orange",
+                                "Hot" = "firebrick3",
+                                "Undefined" = "gray50", 
                                 "median" = "black")) +
   theme_bw() +
-  theme(#legend.position = "NONE",
-    axis.title.y = element_text(angle = 0, vjust = 0.5)) +
-  guides(color = guide_legend(override.aes = list(linetype = c(1,1,1,2), shape = c(16,16,16,NA)))) +
+  theme(axis.title.y = element_text(angle = 0, vjust = 0.5),
+        panel.border = element_rect(colour = "gray", fill = NA, size = 0.5),
+        strip.background = element_rect(fill = "white", color = "gray"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank()) +
+  guides(color = guide_legend(override.aes = list(linetype = c(1,1,1,2), 
+                                                  shape = c(16,16,16,NA), 
+                                                  col = c("orange", "firebrick3",
+                                                          "gray50", "black")))) +
   facet_grid(~ is_treated)
 
 dev.off()

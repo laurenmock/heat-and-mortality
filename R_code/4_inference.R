@@ -16,6 +16,7 @@ library(gridExtra)
 library(kableExtra)
 library(DataCombine)
 library(readr)
+library(AER)
 
 
 #------------------------------------------------------------------------#
@@ -25,11 +26,10 @@ library(readr)
 # set path for processed data from script 1 and matched data from script 2
 processed_data_path <- "data/processed/"
 
-# set path for Fisher matrices
-Fisher_data_path <- "data/Fisher_matrices/"
+# set path for Fisher results
+Fisher_path <- "data/Fisher_results/"
 
-# set path for tables
-table_path <- "figures/tables/"
+# set path for Fisher results
 
 # set path for figures with results
 fig_path <- "figures/results/"
@@ -143,34 +143,56 @@ for(i in 1:length(cities)){
 }
 
 
-#------------------------------ REGRESSION ------------------------------#
+##############################################################################################
+##############################################################################################
 
-# Poisson or negative binomial? check means and variances for each city
-data.frame(city_means = tapply(matched$death_sum3, matched$city, mean), 
-           city_vars = tapply(matched$death_sum3, matched$city, var))
+#---------- get population adjusted ATE ----------#
 
-# overdispersion in every city except Seattle --> use the negative binomial model
-# produces warning because Seattle is underdispersed
+# get 1990 census data
+# https://www.census.gov/data/tables/time-series/demo/popest/2000-subcounties-eval-estimates.html
 
-#---------- negative binomial without covariates ----------#
+# Chicago
+# 2783485
+
+# Los Angeles
+# 3485567
+
+# NY
+# 7322564
+
+# Pittsburgh
+# 369962
+
+# Seattle
+# 516262
+
+neyman_table$pop = c(2783485, 3485567, 7322564, 369962, 516262)
+# ATE per 100,000 people
+neyman_table$ate_adj <- (neyman_table$tau / neyman_table$pop) * 100000
+
+##############################################################################################
+##############################################################################################
+
+#------------------------------ POISSON REGRESSION ------------------------------#
 
 ### without pairs ###
 
 # model for each city
-negB <- list()
+pois <- list()
 IRR <- vector()
 lower.CI <- vector()
 upper.CI <- vector()
 
 for(i in 1:length(cities)){
-  negB[[i]] <- glm.nb(death_sum3 ~ is_treated, data = matched %>% filter(city == cities[i]))
+  pois[[i]] <- glm(death_sum3 ~ is_treated, data = matched %>% filter(city == cities[i]),
+                   famil = poisson())
   
   # calculate incidence rate ratio for treated vs. untreated
-  IRR[i] <- negB[[i]]$coefficients[2] %>% exp()
+  IRR[i] <- pois[[i]]$coefficients[2] %>% exp()
   
   # IRR confidence interval
-  lower.CI[[i]] <- confint(negB[[i]])[2,1] %>% exp()
-  upper.CI[[i]] <- confint(negB[[i]])[2,2] %>% exp()
+  lower.CI[[i]] <- confint(pois[[i]])[2,1] %>% exp()
+  upper.CI[[i]] <- confint(pois[[i]])[2,2] %>% exp()
   
 }
 
@@ -180,20 +202,22 @@ regression_table <- data.frame(city = cities, IRR = IRR, lower.CI = lower.CI, up
 ### with pairs ###
 
 # model for each city
-negB.pairs <- list()
+pois.pairs <- list()
 IRR.pairs <- vector()
 lower.CI.pairs <- vector()
 upper.CI.pairs <- vector()
 
 for(i in 1:length(cities)){
-  negB.pairs[[i]] <- glm.nb(death_sum3 ~ is_treated + as.factor(pair), data = matched %>% filter(city == cities[i]))
+  pois.pairs[[i]] <- glm(death_sum3 ~ is_treated + as.factor(pair), 
+                         data = matched %>% filter(city == cities[i]),
+                         family = poisson())
   
   # calculate incidence rate ratio for treated vs. untreated
-  IRR.pairs[i] <- negB.pairs[[i]]$coefficients[2] %>% exp()
+  IRR.pairs[i] <- pois.pairs[[i]]$coefficients[2] %>% exp()
   
   # IRR confidence interval
-  lower.CI.pairs[[i]] <- confint(negB.pairs[[i]])[2,1] %>% exp()
-  upper.CI.pairs[[i]] <- confint(negB.pairs[[i]])[2,2] %>% exp()
+  lower.CI.pairs[[i]] <- confint(pois.pairs[[i]])[2,1] %>% exp()
+  upper.CI.pairs[[i]] <- confint(pois.pairs[[i]])[2,2] %>% exp()
   
 }
 
@@ -206,21 +230,23 @@ regression_table <- left_join(regression_table, regression_table_pairs, by = "ci
 ###  with covariates ###
 
 # model for each city
-negB.covs <- list() 
+pois.covs <- list() 
 IRR.covs <- vector()
 lower.CI.covs <- vector()
 upper.CI.covs <- vector()
 
 for(i in 1:length(cities)){
-  negB.covs[[i]] <- glm.nb(death_sum3 ~ is_treated + as.factor(pair) + 
-                             month + o3_lag_3 + no2_lag_3, data = matched %>% filter(city == cities[i]))
+  pois.covs[[i]] <- glm(death_sum3 ~ is_treated + as.factor(pair) + 
+                             month + o3_lag_3 + no2_lag_3, 
+                        data = matched %>% filter(city == cities[i]),
+                        family = poisson())
   
   # calculate incidence rate ratio for treated vs. untreated
-  IRR.covs[i] <- negB.covs[[i]]$coefficients[2] %>% exp()
+  IRR.covs[i] <- pois.covs[[i]]$coefficients[2] %>% exp()
   
   # IRR confidence interval
-  lower.CI.covs[[i]] <- confint(negB.covs[[i]])[2,1] %>% exp()
-  upper.CI.covs[[i]] <- confint(negB.covs[[i]])[2,2] %>% exp()
+  lower.CI.covs[[i]] <- confint(pois.covs[[i]])[2,1] %>% exp()
+  upper.CI.covs[[i]] <- confint(pois.covs[[i]])[2,2] %>% exp()
   
 }
 
@@ -232,15 +258,34 @@ regression_table_covs <- data.frame(city = cities, IRR.covs = IRR.covs,
 regression_table <- left_join(regression_table, regression_table_covs, by = "city")
 
 
+#----- confirm Poisson fits well (not over-dispersed) -----#
+
+for(i in 1:5){
+  # test with AER package
+  dispersiontest(pois[[i]])
+}
+
+for(i in 1:5){
+  # test with AER package
+  dispersiontest(pois.pairs[[i]])
+}
+
+for(i in 1:5){
+  # test with AER package
+  dispersiontest(pois.covs[[i]])
+}
+
 ##############################################################################################
 #-----------------------  BAYESIAN  ----------------------#
 ##############################################################################################
 
-# will need to update these!!! read in from csv from Young
+# updated 3/6
 
 bayes_table <- data.frame(city = cities,
-                          est.bayes = c(12.21, 9.93, 21.6, 0.19, 3.13),
-                          var.bayes = c(3.52, 2.79, 6.98, 1.17, 1.11)^2)
+                          est.bayes = c(12.495369410363244, 8.569217644037433, 20.53897429451777, 
+                                        0.4228827702335256, 3.6558323694724923),
+                          var.bayes = c(3.096168660929421, 2.557833564322541, 5.79524887493058, 
+                                        1.0471630267477539, 0.9556067978051604)^2)
 
 bayes_table$lower.CI.bayes <- bayes_table$est.bayes - (1.96*sqrt(bayes_table$var.bayes))
 bayes_table$upper.CI.bayes <- bayes_table$est.bayes + (1.96*sqrt(bayes_table$var.bayes))
@@ -253,8 +298,8 @@ bayes_table$upper.CI.bayes <- bayes_table$est.bayes + (1.96*sqrt(bayes_table$var
 # read in results from Yasmine
 
 library(readxl)
-fisher_diff <- read_excel("data/Fisher_results/Fisher_results.xlsx", sheet = "ATE")
-fisher_ratio <- read_excel("data/Fisher_results/Fisher_results.xlsx", sheet = "RR")
+fisher_diff <- read_excel(paste0(Fisher_path, "Fisher_results.xlsx"), sheet = "ATE")
+fisher_ratio <- read_excel(paste0(Fisher_path, "Fisher_results.xlsx"), sheet = "RR")
 
 
 ##############################################################################################
@@ -274,32 +319,26 @@ unmatched <- unmatched %>%
 # new column for sum of deaths on 3 exp. days
 unmatched$death_sum3 <- unmatched$death + unmatched$death_lag_1 + unmatched$death_lag_2
 
-# Poisson or negative binomial? check means and variances for each city
-data.frame(city_means = tapply(unmatched$death_sum3, unmatched$city, mean), 
-           city_vars = tapply(unmatched$death_sum3, unmatched$city, var))
-
-# overdispersion in every city except Seattle --> use the negative binomial model
-# produces warning because Seattle is underdispersed
-
-#---------- adjusted negative binomial model ----------#
+#---------- adjusted Poisson model ----------#
 
 # model for each city
-negB.covs <- list()
+pois.covs.unmatch <- list()
 IRR.covs.unmatch <- vector()
 lower.CI.covs.unmatch <- vector()
 upper.CI.covs.unmatch <- vector()
 
 for(i in 1:length(cities)){
-  negB.covs[[i]] <- glm.nb(death_sum3 ~ is_treated + 
+  pois.covs.unmatch[[i]] <- glm(death_sum3 ~ is_treated + 
                              dow + month + o3_lag_3 + no2_lag_3,
-                           data = unmatched %>% filter(city == cities[i]))
+                           data = unmatched %>% filter(city == cities[i]),
+                        family = poisson())
   
   # calculate incidence rate ratio for treated vs. untreated
-  IRR.covs.unmatch[i] <- negB.covs[[i]]$coefficients[2] %>% exp()
+  IRR.covs.unmatch[i] <- pois.covs.unmatch[[i]]$coefficients[2] %>% exp()
   
   # IRR confidence interval
-  lower.CI.covs.unmatch[[i]] <- confint(negB.covs[[i]])[2,1] %>% exp()
-  upper.CI.covs.unmatch[[i]] <- confint(negB.covs[[i]])[2,2] %>% exp()
+  lower.CI.covs.unmatch[[i]] <- confint(pois.covs.unmatch[[i]])[2,1] %>% exp()
+  upper.CI.covs.unmatch[[i]] <- confint(pois.covs.unmatch[[i]])[2,2] %>% exp()
   
 }
 
@@ -328,6 +367,9 @@ write.csv(all_results, file = paste0(processed_data_path, "inference_results.csv
 #-------------------------  FIGURES  -----------------------#
 ##############################################################################################
 
+# order by population
+matched$city <- factor(matched$city, levels = c("pitt", "seat", "chic", "la", "ny"))
+cities_ord <- c("pitt", "seat", "chic", "la", "ny")
 
 city_names <- c(
   `chic` = "Chicago",
@@ -338,130 +380,158 @@ city_names <- c(
 )
 
 # boxplots
-png(file = paste0(fig_path, "mortality_boxplots.png"), width = 700, height = 300)
+pdf(file = paste0(fig_path, "mortality_boxplots.pdf"), width = 11, height = 5)
 
 matched %>%
-  ggplot(aes(y = death_sum3, fill = is_treated)) +
-  geom_boxplot() +
-  facet_wrap(~city, nrow = 1, scales = "free", labeller = as_labeller(city_names)) +
+  ggplot(aes(x = is_treated, y = death_sum3, fill = is_treated, col = is_treated)) +
+  geom_boxplot(aes(col = is_treated)) +
+  #geom_jitter(position = position_jitter(0.2)) + 
+  facet_wrap(~city, nrow = 1, 
+             #scales = "free", 
+             labeller = as_labeller(city_names)) +
   labs(x = "", 
-       y = "Deaths per 3 Day Period",
+       y = "Deaths per Three-Day Period",
        fill = "") +
-  scale_fill_manual(labels = c("Control", "Treated"),
-                    values = c("orange", "firebrick3")) +
+  scale_fill_manual(name = "",
+                    labels = c("Control (Warm)", "Treated (Hot)"),
+                    values = c("orange", "tomato3")) +
+  scale_color_manual(name = "",
+                     labels = c("Control (Warm)", "Treated (Hot)"),
+                    values = c("orange4", "firebrick4")) +
   theme_bw() +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_blank(),
         axis.ticks.x = element_blank(),
         strip.background = element_blank(),
-        axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
+        #axis.title.y = element_text(margin = margin(t = 0, r = 15, b = 0, l = 0)),
         panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank()
+        panel.grid.minor = element_blank(),
+        text = element_text(size = 18),
+        legend.key.size = unit(1.3, 'cm')
         )
 
 dev.off()
 
 
-theme(panel.border = element_blank(), panel.grid.major = element_blank(),
-        panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
+# theme(panel.border = element_blank(), panel.grid.major = element_blank(),
+#         panel.grid.minor = element_blank(), axis.line = element_line(colour = "black"))
 
 #----- ATE -----#
 
-png(file = paste0(fig_path, "ATE_results.png"), width = 400, height = 400)
+# make a data frame for ATE plot
+ate_df <- data.frame(city = rep(cities, 4),
+                     ate.method = c(rep("Crude Mean", 5*3), rep("Posterior Mean", 5)),
+                     ate.est = c(rep(all_results$tau, 3), 
+                                 rep(all_results$est.bayes)),
+                     ci.method = rep(c("Neyman (Unpaired Variance)", "Neyman (Paired Variance)", 
+                                       "Fisherian", "Bayesian"), each = 5),
+                     lower.ci = c(all_results$lower.CI.tau.unpaired, all_results$lower.CI.tau.paired, 
+                                  all_results$fisher_ATE_low, all_results$lower.CI.bayes),
+                     upper.ci = c(all_results$upper.CI.tau.unpaired, all_results$upper.CI.tau.paired, 
+                                  all_results$fisher_ATE_high, all_results$upper.CI.bayes))
 
-all_results %>%
-  ggplot(aes(x = tau, y = city)) +
-  # unpaired error bars
-  geom_errorbar(aes(xmin = lower.CI.tau.unpaired, xmax = upper.CI.tau.unpaired, col = "Unpaired Variance"), 
-                size = 1, width = 0.15, position = position_nudge(y = 0.15)) +
-  # paired error bars
-  geom_errorbar(aes(xmin = lower.CI.tau.paired, xmax = upper.CI.tau.paired, col = "Paired Variance"), 
-                size = 1, width = 0.15) +
-  # Fiducial error bars
-  geom_errorbar(aes(xmin = fisher_ATE_low, xmax = fisher_ATE_high, col = "Fisherian"), 
-                size = 1, width = 0.15, position = position_nudge(y = -0.15)) +
-  # Bayesian error bars
-  geom_errorbar(aes(xmin = lower.CI.bayes, xmax = upper.CI.bayes, col = "Bayesian"),
-                size = 1, width = 0.15, position = position_nudge(y = -0.3)) +
-  # points for tau
-  geom_point(aes(x = tau, y = city, color = "ATE"), size = 2) +
-  geom_point(aes(x = tau, y = city), size = 2, position = position_nudge(y = 0.15)) +
-  geom_point(aes(x = tau, y = city), size = 2, position = position_nudge(y = -0.15)) +
-  # points for Bayes
-  geom_point(aes(x = est.bayes, y = city), size = 2, col = "gold", position = position_nudge(y = -0.3)) +
-  # labels
+# order by population
+ate_df$city <- factor(ate_df$city, levels = c("pitt", "seat", "chic", "la", "ny"))
+ate_df$ci.method <- factor(ate_df$ci.method, levels = c("Neyman (Unpaired Variance)", 
+                                                        "Neyman (Paired Variance)", 
+                                                        "Fisherian", "Bayesian"))
+
+# set nudge values
+nudge_ate <- rep(c(0.24, 0.08, -0.08, -0.24), each = 5)
+
+# plot ATE results
+pdf(file = paste0(fig_path, "ATE_results.pdf"), width = 12, height = 6)
+
+ate_df |>
+  ggplot(aes(x = ate.est, y = city)) +
+  geom_errorbar(aes(xmin = lower.ci, xmax = upper.ci, color = ci.method),
+                width = 0.1, size = 1.3,
+                position = position_nudge(y = nudge_ate)) +
+  scale_color_manual(name = "Estimated 95% Uncertainty Interval",
+                     values = c("Neyman (Unpaired Variance)" = "#52B2CF",
+                                "Neyman (Paired Variance)" = "#084887",
+                                "Fisherian" = "darkgoldenrod2",
+                                "Bayesian" = "indianred3")) +
+  geom_vline(aes(xintercept = 0), lty = 2) +
+  geom_point(aes(x = ate.est, y = city, fill = ate.method),
+             position = position_nudge(y = nudge_ate),
+             size = 2.5, pch = 21, stroke = 1.3) +
+  scale_fill_manual(name = "Estimated ATE",
+                    values = c("Crude Mean" = "gray80",
+                               "Posterior Mean" = "indianred3")) +
+  scale_y_discrete(labels = c("New York", "Los Angeles", "Chicago", 
+                              "Seattle", "Pittsburgh"),
+                   limits = rev) +
   labs(title = "",
        x = "Estimated Average Treatment Effect",
-       y = "",
-       color = "Uncertainty Interval") +
-  # manual legend
-  scale_color_manual(values = c("ATE" = "black",
-                                "Unpaired Variance" = "#52B2CF", 
-                                "Paired Variance" = "#084887", 
-                                "Fisherian" = "#F58A07",
-                                "Bayesian" = "gold"
-                                )) +
-  guides(color = guide_legend(override.aes = list(
-                         linetype = c("blank", "solid", "solid", "solid", "solid"),
-                         shape = c(16, NA, NA, NA, NA)))) +
-  # reverse order of cities
-  scale_y_discrete(labels = c("Seattle", "Pittsburgh", "New York", "Los Angeles", "Chicago"), limits = rev) +
+       y = "") +
   theme_minimal() +
-  geom_vline(aes(xintercept = 0), lty = 2) +
-  theme(axis.line.x = element_line(), 
-        legend.position = c(.95, .95), 
-        legend.justification = c("right", "top"))
+  theme(axis.line.x = element_line(),
+        text = element_text(size = 14),
+        axis.text.y = element_text(size = 16)) +
+  guides(fill = guide_legend(order = 1), 
+         color = guide_legend(order = 2))
 
 dev.off()
 
-
 #----- rate ratio -----# 
 
-png(file = paste0(fig_path, "rate_ratio_results.png"), width = 500, height = 400)
+# make a data frame for RR plot
+rr_df <- data.frame(city = rep(cities, 3),
+                    rr.data = c(rep("Before Matching", 5), rep("After Matching", 5*2)),
+                    rr.est = c(all_results$IRR.covs.unmatch, 
+                               rep(all_results$IRR, 2)),
+                    ci.method = rep(c("Poisson Regression", 
+                                      "Poisson Regression", "Fisherian"), each = 5),
+                    #estimand = c(rep("Pop. Level", 5*2), rep("Indiv. Level", 5)),
+                    lower.ci = c(all_results$lower.CI.covs.unmatch, all_results$lower.CI, 
+                                 all_results$fisher_RR_low),
+                    upper.ci = c(all_results$upper.CI.covs.unmatch, all_results$upper.CI, 
+                                 all_results$fisher_RR_high))
 
+# order by population
+rr_df$city <- factor(rr_df$city, levels = c("pitt", "seat", "chic", "la", "ny"))
+rr_df$ci.method <- factor(rr_df$ci.method, levels = c("Poisson Regression", "Fisherian"))
 
-all_results %>%
-  ggplot(aes(y = city)) +
-  # without pairs
-  geom_errorbar(aes(xmin = lower.CI, xmax = upper.CI, col = "Unadjusted"), 
-                size = 1, width = 0.15, position = position_nudge(y = 0.3)) +
-  # Fiducial (for IRR without pairs)
-  geom_errorbar(aes(xmin = fisher_RR_low, xmax = fisher_RR_high, col = "Fiducial"),
-                size = 1, width = 0.15, position = position_nudge(y = 0.15)) +
-  # with pairs
-  geom_errorbar(aes(xmin = lower.CI.pairs, xmax = upper.CI.pairs, col = "Adjusted by Pair"), 
-                size = 1, width = 0.15) +
-  # with pairs and covariates
-  geom_errorbar(aes(xmin = lower.CI.covs, xmax = upper.CI.covs, col = "Adjusted"), 
-                size = 1, width = 0.15, position = position_nudge(y = -0.15)) +
-  # unmatched data (adjusted)
-  geom_errorbar(aes(xmin = lower.CI.covs.unmatch, xmax = upper.CI.covs.unmatch, col = "Original Data (Adjusted)"), 
-                size = 1, width = 0.15, position = position_nudge(y = -0.3)) +
-  # points for tau
-  geom_point(aes(x = IRR, y = city), size = 2, col = "#b881b1", position = position_nudge(y = 0.3)) +
-  geom_point(aes(x = IRR, y = city), size = 2, col = "#b881b1", position = position_nudge(y = 0.15)) +
-  geom_point(aes(x = IRR.pairs, y = city), size = 2, col = "#e54a50") +
-  geom_point(aes(x = IRR.covs, y = city), size = 2, col = "#ffa600", position = position_nudge(y = -0.15)) +
-  geom_point(aes(x = IRR.covs.unmatch, y = city), size = 2, col = "#0d88e6", position = position_nudge(y = -0.3)) +
-  labs(title = "",
-       x = "Rate Ratio",
-       y = "",
-       color = "Regression Model") +
-  # manual legend
-  scale_color_manual(values = c("Unadjusted" = "#b881b1", 
-                                "Fiducial" = "#b30000", 
-                                "Adjusted by Pair" = "#e54a50", 
-                                "Adjusted" = "#ffa600", 
-                                "Original Data (Adjusted)" = "#0d88e6")) +
-  # reverse order of cities
-  scale_y_discrete(labels = c("Seattle", "Pittsburgh", "New York", "Los Angeles", "Chicago"), limits = rev) +
-  # manually change legend shape
-  guides(color = guide_legend(override.aes = list(linetype = c(1)))) +
-  theme_minimal() +
+# set nudge values
+nudge_rr <- rep(c(0.2, 0, -0.2), each = 5)
+
+pdf(file = paste0(fig_path, "rate_ratio_results.pdf"), width = 12, height = 6)
+
+# plot RR results
+rr_df |>
+  ggplot(aes(x = rr.est, y = city)) +
+  geom_errorbar(aes(xmin = lower.ci, xmax = upper.ci, color = ci.method),
+                width = 0.1, size = 1.3,
+                position = position_nudge(y = nudge_rr)) +
+  scale_color_manual(name = "Estimated 95% Uncertainty Interval",
+                     values = c("Poisson Regression" = "mediumslateblue",
+                                "Fisherian" = "darkgoldenrod2")) +
   geom_vline(aes(xintercept = 1), lty = 2) +
-  theme(axis.line.x = element_line(), 
-        legend.position = c(1, 1), 
-        legend.justification = c("right", "top"))
+  geom_point(aes(x = rr.est, y = city, fill = rr.data),
+             position = position_nudge(y = nudge_rr),
+             size = 2.5, pch = 21, stroke = 1.3) +
+  # geom_point(aes(x = rr.est, y = city, fill = rr.data, shape = estimand),
+  #            position = position_nudge(y = nudge_rr),
+  #            size = 2.5, stroke = 1.3) +
+  scale_fill_manual(name = "",
+                    values = c("Before Matching" = "white",
+                               "After Matching" = "black")) +
+  scale_y_discrete(labels = c("New York", "Los Angeles", "Chicago", 
+                              "Seattle", "Pittsburgh"), 
+                   limits = rev) +
+  # scale_shape_manual(name = "Estimand (?)",
+  #                    values = c("Pop. Level" = 21,
+  #                               "Indiv. Level" = 24)) +
+  labs(title = "",
+       x = "Estimated Rate Ratio",
+       y = "") +
+  theme_minimal() +
+  theme(axis.line.x = element_line(),
+        text = element_text(size = 14),
+        axis.text.y = element_text(size = 16)) +
+  guides(fill = guide_legend(order = 1), 
+         color = guide_legend(order = 2))
 
 dev.off()
 

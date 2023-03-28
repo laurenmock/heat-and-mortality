@@ -27,12 +27,20 @@ matched <- read.csv("../data/processed/matched.csv")
 # load inference results
 res <- read.csv(file = "../data/processed/inference_results.csv")
 
+# switch order of cities
+all_unmatched$city <- factor(all_unmatched$city, levels = c("pitt", "seat", "chic", "la", "ny"))
+unmatched$city <- factor(unmatched$city, levels = c("pitt", "seat", "chic", "la", "ny"))
+res$city <- factor(res$city, levels = c("pitt", "seat", "chic", "la", "ny"))
+res <- res[c(4,5,1,2,3),]
+
 # cities
-cities <- c("Chicago", "Los Angeles", "New York", "Pittsburgh", "Seattle")
+cities <- c("Pittsburgh", "Seattle", "Chicago", "Los Angeles", "New York")
 ```
 
 ```{r}
 # table with median summer tmax in each city
+
+# switch order of cities
 
 # get median summer temp in each city
 med_temps <- all_unmatched %>%
@@ -49,6 +57,7 @@ med_temps <- med_temps %>%
 
 # export latex table
 print(xtable(med_temps, type = "latex"), file = "med_temps.tex")
+
 ```
 
 ```{r}
@@ -114,17 +123,17 @@ res <- res %>%
                    var.bayes))
 
 # round to 1 place
-res <- as_tibble(res) %>% mutate_at(vars(3:7, 25:26), funs(round(., 1)))
+res <- as_tibble(res) %>% mutate_at(vars(3:7, 27:28), funs(round(., 1)))
 
 # round to 3 places
-res <- as_tibble(res) %>% mutate_at(vars(8:22, 29:30), funs(round(., 3)))
+res <- as_tibble(res) %>% mutate_at(vars(9:24, 31:32), funs(round(., 3)))
 
 # round to 5 places
-res <- as_tibble(res) %>% mutate_at(vars(23:24, 27:28), funs(round(., 5)))
+res <- as_tibble(res) %>% mutate_at(vars(25:26, 29:30), funs(round(., 5)))
 
 # manually adjust p-value for NY ATE
-res$p_value_ATE[3] <- "<0.00001"
-res$adjusted_p_value_ATE[3] <- "<0.00001"
+res$p_value_ATE[5] <- "<0.00001"
+res$adjusted_p_value_ATE[5] <- "<0.00001"
 
 #----- unite columns with lower and upper CI -----#
 
@@ -172,12 +181,14 @@ res <- unite(res, "fisher.RR.CI",
 
 # select columns on difference scale
 ATE_tab <- res %>%
-  dplyr::select(c(city, tau, CI.tau.unpaired, CI.tau.paired, fisher.ATE.CI,
+  dplyr::select(c(city, pop, tau, ate_adj, CI.tau.unpaired, CI.tau.paired, fisher.ATE.CI,
                   p_value_ATE, adjusted_p_value_ATE, est.bayes, bayes.CI))
 
 # rename
 ATE_tab <- ATE_tab %>%
-  rename(`Est. ATE (Neyman)` = tau,
+  rename(Population = pop,
+         `Est. ATE` = tau,
+         `Est. ATE/100k people` = ate_adj,
          `95% CI (unpaired)` = CI.tau.unpaired,
          `95% CI (paired)` = CI.tau.paired,
          `95% Fiducial interval` = fisher.ATE.CI,
@@ -192,10 +203,26 @@ ATE_tab <- ATE_tab %>%
   as.data.frame() %>%
   dplyr::select(-c(city))
 
+# now switch rows and columns
+ATE_tab <- t(ATE_tab) |> as.data.frame()
+
 # export latex table
 print(xtable(ATE_tab, type = "latex"), file = "ATE_tab.tex")
 
 ```
+
+```{r}
+
+#----- table for ATE and pop-adjusted ATE  -----#
+
+ATE_tab_pop <- ATE_tab |>
+  dplyr::select(c(Population, `Est. ATE`, `Est. ATE/100k people`, `Adj. Fisher p-value`))
+
+# export latex table
+print(xtable(ATE_tab_pop, type = "latex"), file = "ATE_tab_pop.tex")
+```
+
+
 
 ```{r}
 
@@ -226,10 +253,13 @@ RR_tab <- RR_tab %>%
   as.data.frame() %>%
   dplyr::select(-c(city))
 
+
+# now switch rows and columns
+RR_tab <- t(RR_tab) |> as.data.frame()
+
 # export latex table
 print(xtable(RR_tab, type = "latex"), file = "RR_tab.tex")
 
 ```
-
 
 
