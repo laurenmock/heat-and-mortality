@@ -496,7 +496,7 @@ rr_df$ci.method <- factor(rr_df$ci.method, levels = c("Poisson Regression", "Fis
 # set nudge values
 nudge_rr <- rep(c(0.2, 0, -0.2), each = 5)
 
-pdf(file = paste0(fig_path, "rate_ratio_results.pdf"), width = 12, height = 6)
+pdf(file = paste0(fig_path, "risk_ratio_results.pdf"), width = 12, height = 6)
 
 # plot RR results
 rr_df |>
@@ -524,7 +524,7 @@ rr_df |>
   #                    values = c("Pop. Level" = 21,
   #                               "Indiv. Level" = 24)) +
   labs(title = "",
-       x = "Estimated Rate Ratio",
+       x = "Estimated Risk Ratio",
        y = "") +
   theme_minimal() +
   theme(axis.line.x = element_line(),

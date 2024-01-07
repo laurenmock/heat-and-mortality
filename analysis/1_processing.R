@@ -260,6 +260,9 @@ gathered$poll_name <- factor(gathered$poll_name,
                              levels = c("tmax", "o3", "no2", "so2", "co", "pm25", "pm10"))
 levels(gathered$poll_name) <- c("Temp.[max.]", "O[3]", "NO[2]", "SO[2]", "CO", "PM[2.5]", "PM[10]")
 
+# fix month factor levels
+gathered$month <- factor(gathered$month,
+                             levels = c("Jun", "Jul", "Aug", "Sep"))
 
 # trends_labels <- c(
 #   `no2` = "Chicago"
@@ -267,11 +270,51 @@ levels(gathered$poll_name) <- c("Temp.[max.]", "O[3]", "NO[2]", "SO[2]", "CO", "
 
 pdf(file = paste0(EDA_path, "summer_trends.pdf"), width = 5, height = 6)
 
+# plotted by week
 gathered %>%
   group_by(week, city, poll_name) %>%
   summarise(mean_poll = mean(poll_value, na.rm = TRUE)) %>%
   ggplot() +
   geom_line(aes(x = week, y = mean_poll, color = poll_name), lwd = 1.3) +
+  scale_color_brewer(palette = "Dark2") +
+  facet_grid(poll_name ~ city, 
+             scales = "free",
+             labeller = label_parsed) +
+  labs(x = "Week of the Year", 
+       y = "Mean Pollutant Level") +
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.border = element_rect(colour = "gray", fill = NA, size = 0.5),
+        strip.background = element_rect(fill = "white", color = "gray"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+# plotted by month
+gathered %>%
+  group_by(month, city, poll_name) %>%
+  summarise(mean_poll = mean(poll_value, na.rm = TRUE)) %>%
+  ggplot() +
+  geom_line(aes(x = month, y = mean_poll, color = poll_name, group = poll_name), lwd = 1.3) +
+  scale_color_brewer(palette = "Dark2") +
+  facet_grid(poll_name ~ city, 
+             scales = "free",
+             labeller = label_parsed) +
+  labs(x = "Week of the Year", 
+       y = "Mean Pollutant Level") +
+  theme_bw() +
+  theme(legend.position = "none",
+        panel.border = element_rect(colour = "gray", fill = NA, size = 0.5),
+        strip.background = element_rect(fill = "white", color = "gray"),
+        panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+
+# plotted by date
+# class character (not a great solution)
+gathered$month_day <- format(gathered$date, "%m-%d")
+gathered %>%
+  group_by(month_day, city, poll_name) %>%
+  summarise(mean_poll = mean(poll_value, na.rm = TRUE)) %>%
+  ggplot() +
+  geom_line(aes(x = month_day, y = mean_poll, color = poll_name, group = poll_name), lwd = 1.3) +
   scale_color_brewer(palette = "Dark2") +
   facet_grid(poll_name ~ city, 
              scales = "free",
