@@ -3,9 +3,9 @@
 #### Causal Inference for Time Series (Heat and Mortality) ####
 ###############################################################
 
-### Script 3 ###
-# Inputs: Processed data from script 1 and Matched Dataset from script 2
-# Outputs: All figures saved in figures folder
+### Script 4 ###
+# Inputs: Processed data from script 1 and matched dataset from script 3
+# Outputs: Figures saved to folder
 
 #------------------------------------------------------------------------#
 
@@ -22,13 +22,13 @@ library(scales)
 #------------------------------------------------------------------------#
 
 # set path for processed data from script 1 and Matched Dataset from script 2
-processed_data_path <- "data/processed/"
+processed_data_path <- "data/intermediate/"
 
 # set path for figures
-fig_path <- "figures/covariate_balance/"
+fig_path <- "results/figures/covariate_balance/"
 
 # set path for examples of treatment
-trt_ex_path <- "figures/treatment_examples/"
+trt_ex_path <- "results/figures/treatment_examples/"
 
 #------------------------------------------------------------------------#
 #--------- load data ---------#
@@ -745,18 +745,18 @@ dev.off()
 
 tmax_ex <- dat_after %>%
   filter(pair == 53) %>%
-  gather(key = "lag", value = "tmax", 
+  gather(key = "lag", value = "tmax",
          c("tmax", "tmax_lag_1", "tmax_lag_2", "tmax_lag_3", "tmax_lag_4", "tmax_lag_5")) %>%
   group_by(is_treated, lag) %>%
   dplyr::select(is_treated, lag, tmax)
 
 # re-level
-tmax_ex$lag <- factor(tmax_ex$lag, levels = c("tmax_lag_5", "tmax_lag_4", "tmax_lag_3", 
+tmax_ex$lag <- factor(tmax_ex$lag, levels = c("tmax_lag_5", "tmax_lag_4", "tmax_lag_3",
                                                     "tmax_lag_2", "tmax_lag_1", "tmax"))
 tmax_ex$is_treated <- as.character(tmax_ex$is_treated)
 tmax_ex$is_treated <- factor(tmax_ex$is_treated, levels = c("TRUE", "FALSE"))
 
-png(file = paste0(trt_ex_path, "time_series_example.png"), width = 550, height = 300)
+pdf(file = paste0(trt_ex_path, "time_series_example.pdf"), width = 7, height = 5)
 
 tmax_ex %>%
   ggplot(aes(x = as.factor(lag), y = tmax, group = is_treated)) +
@@ -764,8 +764,8 @@ tmax_ex %>%
   # manually set different shapes for lag vs. experiment
   geom_point(aes(color = is_treated), size = 3, shape = c(rep(16,6), rep(1,6))) +
   #geom_point(size = 3, shape = c(rep(16,3), rep(1,3), rep(16,3), rep(1,3))) +
-  labs(title = "Daily High Temperature in Los Angeles in 1990: Matched Pair Example", 
-       x = "", y = expression(paste(~degree, "F")), color = "") + 
+  labs(title = "Daily High Temperature in Los Angeles in 1990: Matched Pair Example",
+       x = "", y = expression(paste(~degree, "F")), color = "") +
   scale_x_discrete(labels = c("Lag 3", "Lag 2", "Lag 1",
                               "Day 1", "Day 2", "Day 3")) +
   scale_color_manual(labels = c("Aug. 30th \u2013 Sep. 4th", "Sep. 13th \u2013 18th"),
