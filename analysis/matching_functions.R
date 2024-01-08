@@ -3,9 +3,7 @@
 #### Causal Inference for Time Series (Heat and Mortality) ####
 ###############################################################
 
-#----- functions for matching (script 2) -----#
-
-# all of this was written by Stephane!
+#----- functions for matching -----#
 
 library(Rcpp)
 
