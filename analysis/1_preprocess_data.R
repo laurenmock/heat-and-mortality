@@ -29,9 +29,6 @@ raw_data_path <- "data/raw/"
 # path for writing processed data
 processed_data_path <- "data/intermediate/"
 
-# # path for EDA figures
-# EDA_path <- "figures/EDA/"
-
 #------------------------------------------------------------------------#
 #--------- import data ---------#
 #------------------------------------------------------------------------#
@@ -58,7 +55,7 @@ load_files <- function(file) {
 ### load RDA files into two lists (city data, then mortality by age data)
 ### then combine each list into a data frame
 
-# city.rda
+#--- city.rda
 
 # load files into list
 files_list <- Map(load_files, file.path(folder = raw_data_path, files))
@@ -71,7 +68,7 @@ raw_data <- bind_rows(files_list)
 rownames(raw_data) <- NULL # remove row names
 
 
-# city.mortality.rda
+#--- city.mortality.rda
 
 # load files into list
 files_mort_list <- Map(load_files, file.path(folder = raw_data_path, files_mort)) 
