@@ -5,7 +5,7 @@
 
 ### Script 4 ###
 # Inputs: Processed data from script 1 and matched dataset from script 3
-# Outputs: Figures saved to folder
+# Outputs: Figures that assess matching
 
 #------------------------------------------------------------------------#
 

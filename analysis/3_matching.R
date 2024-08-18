@@ -5,7 +5,7 @@
 
 ### Script 3 ###
 # Input: Processed data from script 1
-# Output: Data frame that only contains matched pairs (matched.csv)
+# Output: Matched pairs (matched.csv)
 
 #------------------------------------------------------------------------#
 #------------------------------------------------------------------------#

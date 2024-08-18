@@ -5,7 +5,7 @@
 
 ### Script 5 ###
 # Inputs: Processed data from script 1 and matched data from script 3
-# Causal inference!
+# Outputs: Causal inference results and figures
 
 #------------------------------------------------------------------------#
 

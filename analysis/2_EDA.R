@@ -4,10 +4,8 @@
 ###############################################################
 
 ### Script 2 ### 
-# Input: Raw Data 
-# (la, la.mortality, chic, chic.mortality, ny, ny.mortality, 
-# pitt, pitt.mortality, seat, seat.mortality)
-# Output: Processed data (all_processed.csv)
+# Input: Processed data from script 1
+# Output: EDA figures
 
 #------------------------------------------------------------------------#
 #--------- load libraries ---------#
